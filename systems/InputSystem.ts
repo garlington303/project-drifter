@@ -9,6 +9,7 @@ export interface InputKeys {
   shift: boolean;
   space: boolean;
   tab: boolean;
+  escape: boolean;
   mouseDown: boolean;
   num1: boolean;
   num2: boolean;
@@ -19,7 +20,7 @@ export interface InputKeys {
 export class InputSystem {
   keys: InputKeys = { 
     w: false, a: false, s: false, d: false, 
-    shift: false, space: false, tab: false,
+    shift: false, space: false, tab: false, escape: false,
     mouseDown: false,
     num1: false, num2: false, num3: false, num4: false
   };
@@ -84,6 +85,7 @@ export class InputSystem {
       case 'shift': this.keys.shift = isPressed; break;
       case ' ': this.keys.space = isPressed; break;
       case 'tab': this.keys.tab = isPressed; break;
+      case 'escape': this.keys.escape = isPressed; break;
       case '1': this.keys.num1 = isPressed; break;
       case '2': this.keys.num2 = isPressed; break;
       case '3': this.keys.num3 = isPressed; break;

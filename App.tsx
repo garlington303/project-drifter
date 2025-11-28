@@ -58,6 +58,9 @@ const App: React.FC = () => {
       if (inputRef.current.isJustPressed('tab')) {
          setIsMenuOpen(prev => !prev);
       }
+      if (inputRef.current.isJustPressed('escape') && isMenuOpen) {
+         setIsMenuOpen(false);
+      }
 
       // 2. Update Logic (Only if not paused)
       if (!isMenuOpen) {
@@ -92,12 +95,7 @@ const App: React.FC = () => {
       inputRef.current.cleanup();
       mouseRef.current.cleanup();
     };
-  }, [isMenuOpen]); // Re-bind effect if pause state changes? No, ref handles it, but using state in effect loop needs care. 
-                    // Actually, since we read `isMenuOpen` from state inside the closure, we might have stale closure issues if we don't use a ref for paused state 
-                    // OR if we don't depend on it.
-                    // BETTER APPROACH: Use a ref for isPaused to avoid effect re-binding, but update state for UI.
-                    // However, for simplicity here, I will just let the effect re-run or use a mut ref for loop logic.
-                    // Let's use a Mutable Ref for logic and State for UI.
+  }, [isMenuOpen]); 
 
   const update = (dt: number, canvas: HTMLCanvasElement) => {
     const player = playerRef.current;
