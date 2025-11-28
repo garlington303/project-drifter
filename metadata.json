@@ -1,0 +1,5 @@
+{
+  "name": "project-drifter",
+  "description": "A top-down 2D extraction RPG combining Tarkov-style raid mechanics with JRPG combat (Zelda: ALTTP-inspired). Players manage a hideout, venture into raids to loot and fight, then extract safely to upgrade their character and equipment.",
+  "requestFramePermissions": []
+}
