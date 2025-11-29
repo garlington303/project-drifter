@@ -67,6 +67,7 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -80,32 +81,14 @@ const App: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
 
-<<<<<<< HEAD
-    // Initialize Input Listeners
-    inputRef.current.bindEvents();
-    mouseRef.current.bindEvents();
-    
-      // Prevent TAB from cycling browser focus when game is active
-      const handleTabKey = (e: KeyboardEvent) => {
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsMenuOpen(prev => !prev);
-        }
-      };
-      window.addEventListener('keydown', handleTabKey, true);
-
-    // --- GAME LOOP ---
-=======
     // Animation Loop
->>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
     const animate = (time: number) => {
       // console.log("[App] Frame", time); // Uncomment for spammy debug
       if (previousTimeRef.current === undefined || previousTimeRef.current === 0) previousTimeRef.current = time;
       const deltaTime = (time - previousTimeRef.current) / 1000;
       previousTimeRef.current = time;
 
-      const safeDt = Math.min(deltaTime, 0.1); 
+      const safeDt = Math.min(deltaTime, 0.1);
 
       // Input Checking
       if (inputRef.current!.isJustPressed('tab')) {
@@ -119,7 +102,7 @@ const App: React.FC = () => {
       if (!isMenuOpen) {
           update(safeDt, canvas);
       }
-      
+
       // Render (Always)
       render(ctx, canvas);
 
@@ -146,11 +129,7 @@ const App: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(requestRef.current);
     };
-<<<<<<< HEAD
-  }, [isMenuOpen, isLoading]); 
-=======
-  }, [isMenuOpen, systemsReady]); // Re-run loop when menu toggles, but DON'T cleanup systems
->>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
+  }, [isMenuOpen, systemsReady]);
 
   const update = (dt: number, canvas: HTMLCanvasElement) => {
     if (!inputRef.current || !mouseRef.current) return;
