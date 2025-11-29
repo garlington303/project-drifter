@@ -68,6 +68,12 @@ export class InputSystem {
   };
 
   private handleMouseDown = (e: MouseEvent) => {
+    // Don't register mouse input if clicking on UI elements
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'CANVAS') {
+      return;
+    }
+
     if (e.button === 0) { // Left Click
         this.keys.mouseDown = true;
     }

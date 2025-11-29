@@ -146,7 +146,7 @@ const App: React.FC = () => {
     // Update Input
     mouse.update(camera);
 
-    // Update Player
+    // Update Player (Pass isMenuOpen = false since update only runs when menu is closed)
     player.update(dt, input, mouse.state, projectiles, world, equipment);
 
     // Update Projectiles
