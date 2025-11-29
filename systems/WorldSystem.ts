@@ -1,15 +1,23 @@
 
 import { GAME_CONFIG, Rect, TileType, TILE_DEFS, Vector2D } from '../utils/gameUtils';
-import { textureManager } from './TextureManager';
 
 export class WorldSystem {
-  chunks: Map<string, { tiles: TileType[][], seed: number }> = new Map();
+  chunks: Map<string, TileType[][]> = new Map();
+  // Chunk Cache stores the pre-rendered canvas for a chunk
+  private chunkCache: Map<string, HTMLCanvasElement> = new Map();
+  private textureAtlas: Record<string, HTMLImageElement> = {};
   
   constructor() {
     this.getChunk(0, 0);
   }
 
-  getChunk(cx: number, cy: number): { tiles: TileType[][], seed: number } {
+  setTextures(textures: Record<string, HTMLImageElement>) {
+    this.textureAtlas = textures;
+    // Clear cache when textures change (or initially load)
+    this.chunkCache.clear();
+  }
+
+  getChunk(cx: number, cy: number): TileType[][] {
     const key = `${cx},${cy}`;
     if (this.chunks.has(key)) {
       return this.chunks.get(key)!;
@@ -19,84 +27,72 @@ export class WorldSystem {
     return chunk;
   }
 
-  private generateChunk(cx: number, cy: number): { tiles: TileType[][], seed: number } {
+  private generateChunk(cx: number, cy: number): TileType[][] {
     const tiles: TileType[][] = [];
     const size = GAME_CONFIG.chunkSize;
     
-    // World Limit Configuration
     const radiusChunks = GAME_CONFIG.worldRadiusChunks;
     const worldRadiusTiles = radiusChunks * size;
-    const boundaryStart = worldRadiusTiles - 8; // Start transitioning 8 tiles before max
+    const boundaryStart = worldRadiusTiles - 8; 
 
     for (let y = 0; y < size; y++) {
       const row: TileType[] = [];
       for (let x = 0; x < size; x++) {
-        // Global Tile Coordinates
         const wx = cx * size + x;
         const wy = cy * size + y;
         
-        // Distance from Center
         const dist = Math.sqrt(wx * wx + wy * wy);
         
-        // --- 1. BOUNDARY LOGIC (Rock Containment) ---
-        // Add some noise to the boundary radius so it's not a perfect circle
+        // --- BOUNDARY LOGIC ---
         const boundaryNoise = this.noise(wx * 0.05, wy * 0.05) * 15;
         const limit = boundaryStart + boundaryNoise;
 
         if (dist > limit) {
-            // Far outer edge is Void/Bedrock
             if (dist > limit + 10) {
                 row.push(TileType.Bedrock);
             } else {
-                // The "Containment Wall"
                 row.push(TileType.Cliff);
             }
             continue;
         }
 
-        // --- 2. ROAD GENERATION ---
-        // Distorted grid
+        // --- ROAD GENERATION ---
         const roadWarp = this.noise(wx * 0.03, wy * 0.03) * 20; 
         const roadSpacing = 50; 
         const distToHRoad = Math.abs((wy + roadWarp) % roadSpacing);
         const distToVRoad = Math.abs((wx + roadWarp) % roadSpacing);
         const isRoad = distToHRoad < 2 || distToVRoad < 2;
 
-        // --- 3. BIOME NOISE ---
-        // Layer 1: Base Elevation/Moisture (0.05 scale = large features)
+        // --- BIOME NOISE ---
         const n1 = this.noise(wx * 0.05, wy * 0.05);
-        // Layer 2: Detail (0.15 scale = small details)
         const n2 = this.noise(wx * 0.15 + 100, wy * 0.15 + 100);
-        
         const noiseVal = n1 * 0.8 + n2 * 0.2;
 
         if (isRoad) {
              row.push(TileType.Road);
         } else {
-            // Safe spawn area
             if (dist < 10) {
                 row.push(TileType.Grass);
             } else {
-                // Biome Logic
                 if (noiseVal < 0.25) {
                     row.push(TileType.Water); 
                 } else if (noiseVal < 0.3) {
-                    row.push(TileType.Grass); // Shore/Sand equivalent
+                    row.push(TileType.Sand);
                 } else if (noiseVal < 0.6) {
-                    row.push(TileType.Grass); // Standard Grass
+                    row.push(TileType.Grass);
                 } else if (noiseVal < 0.75) {
-                    row.push(TileType.Forest); // Forest
+                    row.push(TileType.Forest);
                 } else if (noiseVal < 0.85) {
-                    row.push(TileType.DeepForest); // Thick Forest
+                    row.push(TileType.DeepForest);
                 } else {
-                    row.push(TileType.Wall); // Rocky/Mountainous spots inside map
+                    row.push(TileType.Wall); 
                 }
             }
         }
       }
       tiles.push(row);
     }
-    return { tiles, seed: cx * 1234 + cy * 5678 };
+    return tiles;
   }
 
   // --- UTILS ---
@@ -142,16 +138,14 @@ export class WorldSystem {
     if (ly < 0) ly += cs;
 
     const chunk = this.getChunk(cx, cy);
-    return chunk.tiles[ly][lx];
+    return chunk[ly][lx];
   }
 
-  // Simplified collision check using TILE_DEFS
   isPassable(worldX: number, worldY: number): boolean {
     const tile = this.getTileAt(worldX, worldY);
     return TILE_DEFS[tile].passable;
   }
 
-  // AABB Check
   checkCollision(rect: Rect): boolean {
     const ts = GAME_CONFIG.tileSize;
     const startX = Math.floor(rect.x / ts);
@@ -161,7 +155,6 @@ export class WorldSystem {
 
     for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
-        // Use center of tile for lookup to avoid boundary edge cases
         const tile = this.getTileAt(x * ts + (ts/2), y * ts + (ts/2));
         if (!TILE_DEFS[tile].passable) return true;
       }
@@ -169,9 +162,85 @@ export class WorldSystem {
     return false;
   }
 
-  draw(ctx: CanvasRenderingContext2D, camera: Vector2D, canvasWidth: number, canvasHeight: number) {
+  /**
+   * Renders a single chunk to an off-screen canvas and returns it.
+   */
+  private renderChunkToCache(cx: number, cy: number): HTMLCanvasElement {
+    const size = GAME_CONFIG.chunkSize;
     const ts = GAME_CONFIG.tileSize;
+    const canvas = document.createElement('canvas');
+    canvas.width = size * ts;
+    canvas.height = size * ts;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return canvas;
+
+    const chunk = this.getChunk(cx, cy);
+
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const tile = chunk[y][x];
+        const def = TILE_DEFS[tile];
+        const posX = x * ts;
+        const posY = y * ts;
+
+        // 1. Base Texture / Color
+        if (def.texture && this.textureAtlas[def.texture]) {
+            ctx.drawImage(this.textureAtlas[def.texture], posX, posY, ts, ts);
+        } else {
+            ctx.fillStyle = def.color;
+            ctx.fillRect(posX, posY, ts, ts);
+        }
+
+        // 2. Procedural Overlays (Baked into cache)
+        
+        // Checkerboard variation
+        if ((x + y + cx + cy) % 2 === 0) {
+            ctx.globalAlpha = 0.05;
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(posX, posY, ts, ts);
+            ctx.globalAlpha = 1.0;
+        }
+
+        if (tile === TileType.Cliff || tile === TileType.Wall) {
+            // Shadow base
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(posX, posY + ts - 10, ts, 10);
+            ctx.globalAlpha = 1.0;
+            // Highlight top
+            ctx.fillStyle = 'rgba(255,255,255,0.1)';
+            ctx.fillRect(posX, posY, ts, 5);
+        }
+        else if (tile === TileType.Bedrock) {
+            ctx.fillStyle = '#000000';
+            ctx.globalAlpha = 0.8;
+            ctx.fillRect(posX, posY, ts, ts);
+            ctx.globalAlpha = 1.0;
+        }
+        else if (tile === TileType.Forest || tile === TileType.DeepForest) {
+            ctx.fillStyle = tile === TileType.Forest ? '#14532d' : '#022c22';
+            ctx.beginPath();
+            ctx.arc(posX + ts/2, posY + ts/2, ts/3, 0, Math.PI*2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.arc(posX + ts/2 + 3, posY + ts/2 + 3, ts/3, 0, Math.PI*2);
+            ctx.fill();
+        }
+        else if (tile === TileType.Water || tile === TileType.DeepWater) {
+             ctx.fillStyle = tile === TileType.DeepWater ? 'rgba(30, 58, 138, 0.4)' : 'rgba(59, 130, 246, 0.2)';
+             ctx.fillRect(posX, posY, ts, ts);
+        }
+      }
+    }
+    return canvas;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, camera: Vector2D, canvasWidth: number, canvasHeight: number) {
     const cs = GAME_CONFIG.chunkSize;
+    const ts = GAME_CONFIG.tileSize;
     const chunkSizePx = cs * ts;
 
     const startCX = Math.floor(camera.x / chunkSizePx) - 1;
@@ -179,94 +248,17 @@ export class WorldSystem {
     const startCY = Math.floor(camera.y / chunkSizePx) - 1;
     const endCY = Math.floor((camera.y + canvasHeight) / chunkSizePx) + 1;
 
-    // Disable image smoothing for pixel art look
-    ctx.imageSmoothingEnabled = false;
-
-    let drawCount = 0;
-    let textureCount = 0;
-
     for (let cy = startCY; cy <= endCY; cy++) {
       for (let cx = startCX; cx <= endCX; cx++) {
-        const chunk = this.getChunk(cx, cy);
-        const chunkX = cx * chunkSizePx;
-        const chunkY = cy * chunkSizePx;
+        const key = `${cx},${cy}`;
+        let cachedCanvas = this.chunkCache.get(key);
 
-        for (let y = 0; y < cs; y++) {
-          for (let x = 0; x < cs; x++) {
-            // Access tiles from the object structure
-            const tile = chunk.tiles[y][x];
-            const def = TILE_DEFS[tile];
-            const posX = chunkX + x * ts;
-            const posY = chunkY + y * ts;
-
-            // Global tile coordinates for deterministic seeding
-            const globalX = cx * cs + x;
-            const globalY = cy * cs + y;
-            // Use chunk seed + offset
-            const seed = chunk.seed + (y * cs + x);
-
-            // REMOVED FAULTY CULLING - It was comparing World Coordinates to Screen Dimensions
-            // if (posX < -ts || posX > canvasWidth || posY < -ts || posY > canvasHeight) continue;
-
-            drawCount++;
-
-            // Try to get texture
-            const texture = textureManager.getTexture(tile, seed);
-            
-            if (texture) {
-              // Draw Texture
-              ctx.drawImage(texture, posX, posY, ts, ts);
-              textureCount++;
-            } else {
-              // Fallback to colored squares if texture missing or not loaded
-              if (def) {
-                  ctx.fillStyle = def.color;
-                  
-                  // Texture Variation (Checkerboard / Noise)
-                  if ((x + y + cx + cy) % 2 === 0) {
-                      // Slightly lighter overlay
-                      ctx.globalAlpha = 0.05;
-                      ctx.fillStyle = '#ffffff';
-                      ctx.fillRect(posX, posY, ts, ts);
-                      ctx.fillStyle = def.color; // Reset
-                      ctx.globalAlpha = 1.0;
-                  } else {
-                      ctx.fillRect(posX, posY, ts, ts);
-                  }
-
-                  // --- DECORATION FALLBACKS ---
-                  if (tile === TileType.Cliff) {
-                      // Rock Wall Effect
-                      ctx.fillStyle = '#1f2937'; // Darker gray
-                      ctx.fillRect(posX, posY, ts, ts);
-                      // Highlight top
-                      ctx.fillStyle = '#4b5563';
-                      ctx.fillRect(posX, posY, ts, 10);
-                      // Shadow bottom
-                      ctx.fillStyle = '#111827';
-                      ctx.fillRect(posX, posY + ts - 10, ts, 10);
-                  }
-                  else if (tile === TileType.Forest || tile === TileType.DeepForest) {
-                      // Tree circles
-                      ctx.fillStyle = tile === TileType.Forest ? '#14532d' : '#022c22';
-                      ctx.beginPath();
-                      ctx.arc(posX + ts/2, posY + ts/2, ts/3, 0, Math.PI*2);
-                      ctx.fill();
-                  }
-                  else if (tile === TileType.Water) {
-                      // Simple animated sparkle placeholder (static for now)
-                      ctx.fillStyle = '#60a5fa';
-                      ctx.fillRect(posX + 10, posY + 10, 8, 4);
-                  }
-                  else if (tile === TileType.Road) {
-                      // Road grit
-                      ctx.fillStyle = '#92400e';
-                      ctx.fillRect(posX + ts/2 - 2, posY, 4, ts);
-                  }
-              }
-            }
-          }
+        if (!cachedCanvas) {
+            cachedCanvas = this.renderChunkToCache(cx, cy);
+            this.chunkCache.set(key, cachedCanvas);
         }
+
+        ctx.drawImage(cachedCanvas, cx * chunkSizePx, cy * chunkSizePx);
       }
     }
   }

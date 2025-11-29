@@ -20,27 +20,30 @@ export enum TileType {
   Forest = 5,    // Dense vegetation (Passable)
   DeepForest = 6,// Impassable dense vegetation
   Cliff = 7,     // Rock Containment Wall
-  DeepWater = 8  // Ocean/Boundary water
+  DeepWater = 8, // Ocean/Boundary water
+  Sand = 9       // Shore/Beach
 }
 
 export interface TileDef {
   id: TileType;
   passable: boolean;
-  color: string; // Base hex color
+  color: string; // Base hex color (fallback)
   label: string;
   speedCost: number; // 1.0 = normal, >1.0 = slow
+  texture?: string; // Key corresponding to AssetLoader keys
 }
 
 export const TILE_DEFS: Record<TileType, TileDef> = {
-  [TileType.Grass]: { id: TileType.Grass, passable: true, color: '#15803d', label: 'Grass', speedCost: 1.0 },
-  [TileType.Wall]: { id: TileType.Wall, passable: false, color: '#4b5563', label: 'Rock', speedCost: 0 },
-  [TileType.Water]: { id: TileType.Water, passable: false, color: '#3b82f6', label: 'Water', speedCost: 0 },
-  [TileType.Bedrock]: { id: TileType.Bedrock, passable: false, color: '#000000', label: 'Void', speedCost: 0 },
-  [TileType.Road]: { id: TileType.Road, passable: true, color: '#b45309', label: 'Road', speedCost: 0.8 }, // Roads are faster
-  [TileType.Forest]: { id: TileType.Forest, passable: true, color: '#166534', label: 'Forest', speedCost: 1.2 },
-  [TileType.DeepForest]: { id: TileType.DeepForest, passable: false, color: '#052e16', label: 'Thicket', speedCost: 0 },
-  [TileType.Cliff]: { id: TileType.Cliff, passable: false, color: '#374151', label: 'Cliff', speedCost: 0 },
-  [TileType.DeepWater]: { id: TileType.DeepWater, passable: false, color: '#1e3a8a', label: 'Deep Water', speedCost: 0 },
+  [TileType.Grass]: { id: TileType.Grass, passable: true, color: '#15803d', label: 'Grass', speedCost: 1.0, texture: 'grass' },
+  [TileType.Wall]: { id: TileType.Wall, passable: false, color: '#4b5563', label: 'Rock', speedCost: 0, texture: 'stone' },
+  [TileType.Water]: { id: TileType.Water, passable: false, color: '#3b82f6', label: 'Water', speedCost: 0, texture: 'water' },
+  [TileType.Bedrock]: { id: TileType.Bedrock, passable: false, color: '#09090b', label: 'Void', speedCost: 0, texture: 'stone' }, // Tinted dark in renderer
+  [TileType.Road]: { id: TileType.Road, passable: true, color: '#b45309', label: 'Road', speedCost: 0.8, texture: 'dirt' },
+  [TileType.Forest]: { id: TileType.Forest, passable: true, color: '#166534', label: 'Forest', speedCost: 1.2, texture: 'grass' }, // Grass base + overlay
+  [TileType.DeepForest]: { id: TileType.DeepForest, passable: false, color: '#052e16', label: 'Thicket', speedCost: 0, texture: 'grass' }, // Grass base + overlay
+  [TileType.Cliff]: { id: TileType.Cliff, passable: false, color: '#374151', label: 'Cliff', speedCost: 0, texture: 'stone' },
+  [TileType.DeepWater]: { id: TileType.DeepWater, passable: false, color: '#1e3a8a', label: 'Deep Water', speedCost: 0, texture: 'water' },
+  [TileType.Sand]: { id: TileType.Sand, passable: true, color: '#fde047', label: 'Sand', speedCost: 1.1, texture: 'sand' },
 };
 
 // --- RPG DATA STRUCTURES ---

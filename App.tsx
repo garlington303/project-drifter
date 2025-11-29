@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { GAME_CONFIG } from './utils/gameUtils';
+import { AssetLoader } from './utils/AssetLoader';
 import { InputSystem } from './systems/InputSystem';
 import { MouseSystem } from './systems/MouseSystem';
 import { ProjectileSystem } from './systems/ProjectileSystem';
@@ -9,19 +10,16 @@ import { InventorySystem } from './systems/InventorySystem';
 import { EquipmentSystem } from './systems/EquipmentSystem';
 import { PlayerEntity } from './entities/PlayerEntity';
 import { UnifiedMenuUI } from './components/UnifiedMenuUI';
-import { AssetLoader } from './systems/AssetLoader';
-import { textureManager } from './systems/TextureManager';
 import { LoadingScreen } from './components/LoadingScreen';
 
 const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Game Systems with Side Effects (Input/Mouse)
-  // We lazy initialize these in a useEffect to avoid constructor side effects during render
   const inputRef = useRef<InputSystem | null>(null);
   const mouseRef = useRef<MouseSystem | null>(null);
   
-  // Logic Systems & Entities (Safe to keep as Refs)
+  // Logic Systems & Entities
   const playerRef = useRef(new PlayerEntity(0, 0));
   const projectileSystemRef = useRef(new ProjectileSystem());
   const worldSystemRef = useRef(new WorldSystem());
@@ -36,38 +34,48 @@ const App: React.FC = () => {
   // React UI State
   const [debugInfo, setDebugInfo] = useState({ x: 0, y: 0, fps: 0, rot: 0, bullets: 0 });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
+  // Loading State
   const [isLoading, setIsLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [systemsReady, setSystemsReady] = useState(false);
 
-  // 1. SYSTEM LIFECYCLE MANAGEMENT
-  // Initialize input listeners once on mount, cleanup on unmount.
+  // 1. INITIALIZATION & LOADING
   useEffect(() => {
-    // Load Assets
-    const loadGameAssets = async () => {
-      const loader = new AssetLoader();
-      const assets = await loader.loadAllAssets((progress) => {
-        setLoadProgress(progress);
-      });
-      textureManager.initialize(assets);
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 500);
-    };
-    loadGameAssets();
-  }, []);
+    const initGame = async () => {
+        // Initialize Inputs
+        inputRef.current = new InputSystem();
+        mouseRef.current = new MouseSystem();
 
-  useEffect(() => {
-    inputRef.current = new InputSystem();
-    mouseRef.current = new MouseSystem();
-    setSystemsReady(true);
+        // Load Assets
+        const loader = new AssetLoader();
+        const loadedTextures = await loader.loadAllAssets((progress) => {
+            setLoadingProgress(progress);
+        });
+
+        // Inject Assets into World
+        worldSystemRef.current.setTextures(loadedTextures);
+
+        // Finish Loading
+        // Small delay to let the progress bar fill visually
+        setTimeout(() => {
+            setSystemsReady(true);
+            setIsLoading(false);
+        }, 500);
+    };
+
+    initGame();
+
     return () => {
       inputRef.current?.cleanup();
       mouseRef.current?.cleanup();
     };
   }, []);
 
+  // 2. GAME LOOP
   useEffect(() => {
+    if (!systemsReady || !inputRef.current || !mouseRef.current) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -83,12 +91,11 @@ const App: React.FC = () => {
 
     // Animation Loop
     const animate = (time: number) => {
-      // console.log("[App] Frame", time); // Uncomment for spammy debug
       if (previousTimeRef.current === undefined || previousTimeRef.current === 0) previousTimeRef.current = time;
       const deltaTime = (time - previousTimeRef.current) / 1000;
       previousTimeRef.current = time;
 
-      const safeDt = Math.min(deltaTime, 0.1);
+      const safeDt = Math.min(deltaTime, 0.1); 
 
       // Input Checking
       if (inputRef.current!.isJustPressed('tab')) {
@@ -102,7 +109,7 @@ const App: React.FC = () => {
       if (!isMenuOpen) {
           update(safeDt, canvas);
       }
-
+      
       // Render (Always)
       render(ctx, canvas);
 
@@ -129,7 +136,7 @@ const App: React.FC = () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(requestRef.current);
     };
-  }, [isMenuOpen, systemsReady]);
+  }, [isMenuOpen, systemsReady]); 
 
   const update = (dt: number, canvas: HTMLCanvasElement) => {
     if (!inputRef.current || !mouseRef.current) return;
@@ -146,7 +153,7 @@ const App: React.FC = () => {
     // Update Input
     mouse.update(camera);
 
-    // Update Player (Pass isMenuOpen = false since update only runs when menu is closed)
+    // Update Player
     player.update(dt, input, mouse.state, projectiles, world, equipment);
 
     // Update Projectiles
@@ -232,18 +239,16 @@ const App: React.FC = () => {
     }
   };
 
-  if (!systemsReady) return <div className="bg-black w-screen h-screen" />;
+  if (isLoading) return <LoadingScreen progress={loadingProgress} />;
 
   return (
     <div className={`relative w-screen h-screen overflow-hidden bg-black ${isMenuOpen ? 'cursor-default' : 'cursor-none'}`}>
-      {isLoading && <LoadingScreen progress={loadProgress} />}
-      
       <canvas ref={canvasRef} className="block" />
       
       {!isMenuOpen && (
         <div className="absolute top-5 left-5 pointer-events-none select-none">
             <h2 className="m-0 text-emerald-400 font-bold text-lg font-mono">PROJECT DRIFTER</h2>
-            <div className="text-sm text-neutral-400 font-mono">PHASE 2: PROCEDURAL WORLD</div>
+            <div className="text-sm text-neutral-400 font-mono">PHASE 3.2: TEXTURED WORLD</div>
             
             <div className="mt-4 font-mono text-sm text-neutral-300 bg-neutral-900/80 p-3 rounded border border-neutral-800 backdrop-blur-sm">
                 <div>POS: {debugInfo.x}, {debugInfo.y}</div>

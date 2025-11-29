@@ -1,41 +1,30 @@
+
 import React from 'react';
 
 interface LoadingScreenProps {
-  progress: number; // 0.0 to 1.0
+  progress: number;
 }
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ progress }) => {
-  const percentage = Math.round(progress * 100);
-
   return (
-    <div className="fixed inset-0 z-[10000] bg-neutral-950 flex flex-col items-center justify-center text-white">
-      <div className="mb-8 text-4xl font-bold tracking-widest animate-pulse text-emerald-500">
+    <div className="fixed inset-0 bg-neutral-950 flex flex-col items-center justify-center z-[100] select-none">
+      <div className="text-4xl font-bold text-emerald-500 mb-2 tracking-widest animate-pulse font-mono">
         PROJECT DRIFTER
       </div>
+      <div className="text-neutral-500 text-sm font-mono mb-8 tracking-wide">
+        INITIALIZING WORLD SIMULATION...
+      </div>
       
-      <div className="w-96 h-4 bg-neutral-800 rounded-full overflow-hidden border border-neutral-700 relative">
+      <div className="w-96 h-1 bg-neutral-900 overflow-hidden">
         <div 
-          className="h-full bg-emerald-500 transition-all duration-300 ease-out relative"
-          style={{ width: `${percentage}%` }}
-        >
-            <div className="absolute inset-0 bg-white/20 animate-[shimmer_1s_infinite] skew-x-12"></div>
-        </div>
+          className="h-full bg-emerald-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+          style={{ width: `${progress * 100}%` }}
+        />
       </div>
       
-      <div className="mt-4 font-mono text-neutral-400 text-sm">
-        LOADING ASSETS... {percentage}%
+      <div className="mt-4 text-neutral-600 font-mono text-xs">
+        ASSETS: {Math.round(progress * 100)}%
       </div>
-
-      <div className="mt-12 text-xs text-neutral-600 italic max-w-md text-center">
-        "Did you know? Drifters often find rare artifacts in the deepest forests."
-      </div>
-
-      <style>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%) skewX(-15deg); }
-          100% { transform: translateX(200%) skewX(-15deg); }
-        }
-      `}</style>
     </div>
   );
 };

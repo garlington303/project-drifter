@@ -17,34 +17,82 @@ type DragSource =
   | { source: 'inventory'; index: number }
   | { source: 'equipment'; slot: EquipmentSlot };
 
+type DropTarget = 
+  | { type: 'inventory'; index: number }
+  | { type: 'equipment'; slot: EquipmentSlot };
+
 export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equipment, onUpdate }) => {
   const [dragSource, setDragSource] = useState<DragSource | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ type: 'inventory' | 'equipment', index: number | string } | null>(null);
+  const [hoverTarget, setHoverTarget] = useState<DropTarget | null>(null);
+
+  // --- HELPER: GET DROP FEEDBACK COLOR ---
+  const getDragFeedbackClass = (targetType: 'inventory' | 'equipment', targetIndex: number | string) => {
+    if (!dragSource) return '';
+    
+    // Check if this specific slot is being hovered
+    let isHovered = false;
+    if (hoverTarget && hoverTarget.type === targetType) {
+        if (hoverTarget.type === 'inventory') {
+            isHovered = hoverTarget.index === targetIndex;
+        } else {
+            isHovered = hoverTarget.slot === targetIndex;
+        }
+    }
+
+    if (!isHovered) return '';
+
+    // 1. Inventory -> Inventory (Always Valid - Swap/Move)
+    if (targetType === 'inventory') {
+        return 'bg-blue-900/40 ring-2 ring-blue-500 scale-[1.02]';
+    }
+
+    // 2. Dragging TO Equipment Slot
+    if (targetType === 'equipment') {
+        let itemToEquip = null;
+
+        // Find the item being dragged
+        if (dragSource.source === 'inventory') {
+            itemToEquip = inventory.items[dragSource.index];
+        } else {
+            // Equipment -> Equipment (usually distinct slots, unlikely to be valid unless we add logic later)
+            // For now, assume invalid unless same slot (which is no-op)
+            return 'bg-red-900/40 ring-2 ring-red-500';
+        }
+
+        // Check compatibility
+        if (itemToEquip && itemToEquip.slot === targetIndex) {
+             return 'bg-emerald-900/40 ring-2 ring-emerald-500 scale-[1.05] shadow-[0_0_15px_rgba(16,185,129,0.5)]';
+        } else {
+             return 'bg-red-900/40 ring-2 ring-red-500 scale-[0.98]';
+        }
+    }
+
+    return '';
+  };
 
   // --- DRAG HANDLERS ---
 
   const handleDragStart = (e: React.DragEvent, source: DragSource) => {
     setDragSource(source);
-    // Select the item being dragged
     if (source.source === 'inventory') setSelectedSlot({ type: 'inventory', index: source.index });
     else setSelectedSlot({ type: 'equipment', index: source.slot });
 
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('application/project-drifter-item', JSON.stringify(source));
     
-    // Custom drag image to avoid dragging the whole card background
+    // Custom drag image logic
     const target = e.currentTarget as HTMLElement;
     const iconElement = target.querySelector('.item-icon');
-    
     if (iconElement) {
        const rect = iconElement.getBoundingClientRect();
-       // Center the drag image roughly
        e.dataTransfer.setDragImage(iconElement, rect.width / 2, rect.height / 2);
     }
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
     setDragSource(null);
+    setHoverTarget(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -52,18 +100,29 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
     e.dataTransfer.dropEffect = 'move';
   };
 
+  const handleDragEnter = (e: React.DragEvent, target: DropTarget) => {
+    e.preventDefault();
+    setHoverTarget(target);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // We rely mostly on DragEnter updating the target, but we can clear if we leave the valid zone completely.
+    // However, firing this on child elements can cause flickering, so we simply don't reset here 
+    // and rely on DragEnter of another slot or DragEnd to clear.
+  };
+
   // --- DROP HANDLERS ---
 
   const handleDropOnInventory = (e: React.DragEvent, targetIndex: number) => {
     e.preventDefault();
     e.stopPropagation();
+    setHoverTarget(null);
     
     if (!dragSource) return;
 
     if (dragSource.source === 'inventory') {
         if (dragSource.index !== targetIndex) {
             inventory.moveItem(dragSource.index, targetIndex);
-            // Update selection to new index
             setSelectedSlot({ type: 'inventory', index: targetIndex });
             onUpdate();
         }
@@ -96,6 +155,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
   const handleDropOnEquipment = (e: React.DragEvent, targetSlot: EquipmentSlot) => {
     e.preventDefault();
     e.stopPropagation();
+    setHoverTarget(null);
 
     if (!dragSource) return;
 
@@ -168,6 +228,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
   const RenderEquipSlot = ({ slot, icon: Icon }: { slot: EquipmentSlot, icon: any }) => {
     const item = equipment.slots[slot];
     const isSelected = selectedSlot?.type === 'equipment' && selectedSlot?.index === slot;
+    const feedbackClass = getDragFeedbackClass('equipment', slot);
 
     return (
       <div 
@@ -175,13 +236,20 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
             w-16 h-16 rounded flex items-center justify-center relative transition-all duration-150 outline-none
             ${item ? 'bg-neutral-800' : 'bg-neutral-900/50'}
             ${item ? getRarityColor(item.rarity) : 'border border-neutral-800'}
+            
+            /* Selection Highlight */
             ${isSelected ? 'ring-2 ring-neutral-200 z-10 border-transparent' : ''}
+            
+            /* Feedback Highlight (Overrides Selection/Border) */
+            ${feedbackClass}
+
             ${item ? 'cursor-grab active:cursor-grabbing hover:bg-neutral-700' : 'cursor-default'}
         `}
         draggable={!!item}
         onDragStart={(e) => handleDragStart(e, { source: 'equipment', slot })}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
+        onDragEnter={(e) => handleDragEnter(e, { type: 'equipment', slot })}
         onDrop={(e) => handleDropOnEquipment(e, slot)}
         onClick={(e) => handleSlotClick(e, 'equipment', slot)}
         onContextMenu={(e) => handleEquipRightClick(e, slot)}
@@ -189,11 +257,11 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
         {item ? (
            <div className="text-3xl select-none pointer-events-none item-icon">{item.icon}</div>
         ) : (
-           <Icon className="text-neutral-700 pointer-events-none" size={24} />
+           <Icon className={`pointer-events-none transition-colors duration-200 ${feedbackClass ? 'text-neutral-500' : 'text-neutral-700'}`} size={24} />
         )}
         <div className="absolute -bottom-5 text-[10px] text-neutral-500 uppercase font-mono tracking-tighter pointer-events-none">{slot}</div>
         
-        {/* Tooltip for Equipment */}
+        {/* Tooltip */}
         {item && (
             <div className={`
                 absolute left-1/2 -translate-x-1/2 mt-2 top-full w-56 
@@ -270,7 +338,6 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
 
 
       {/* RIGHT COLUMN: INVENTORY GRID */}
-      {/* Changed overflow-hidden to relative so tooltips can bleed out */}
       <div className="w-2/3 flex flex-col h-full bg-neutral-900/30 border border-neutral-800 rounded-lg relative" onClick={(e) => e.stopPropagation()}>
           <div className="p-3 border-b border-neutral-800 bg-neutral-900/50 flex justify-between items-center rounded-t-lg">
               <span className="text-neutral-300 font-bold text-sm">BACKPACK</span>
@@ -282,6 +349,8 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
                 {inventory.items.map((item, index) => {
                     const isSelected = selectedSlot?.type === 'inventory' && selectedSlot?.index === index;
                     const isDraggingThis = dragSource?.source === 'inventory' && dragSource.index === index;
+                    const feedbackClass = getDragFeedbackClass('inventory', index);
+                    
                     const row = Math.floor(index / 5);
                     const isBottomRow = row >= 3;
 
@@ -303,15 +372,19 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
                             /* Hover Effect */
                             hover:bg-neutral-800 hover:scale-[1.02] hover:border-neutral-700
                             
-                            /* Selection Highlight (High Priority) */
+                            /* Selection Highlight */
                             ${isSelected ? 'ring-2 ring-neutral-200 z-10 border-transparent bg-neutral-800' : ''}
                             
+                            /* Drag Feedback */
+                            ${feedbackClass}
+
                             group
                             `}
                             draggable={!!item}
                             onDragStart={(e) => handleDragStart(e, { source: 'inventory', index })}
                             onDragEnd={handleDragEnd}
                             onDragOver={handleDragOver}
+                            onDragEnter={(e) => handleDragEnter(e, { type: 'inventory', index })}
                             onDrop={(e) => handleDropOnInventory(e, index)}
                             onClick={(e) => handleSlotClick(e, 'inventory', index)}
                             onContextMenu={(e) => handleInventoryRightClick(e, index)}
@@ -326,7 +399,6 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
                                 )}
                                 
                                 {/* Tooltip */}
-                                {/* Position logic: If bottom row, show above. Else show below. */}
                                 <div className={`
                                     absolute left-1/2 -translate-x-1/2 w-56 
                                     bg-neutral-950 border border-neutral-800 rounded-lg p-3 z-50 
