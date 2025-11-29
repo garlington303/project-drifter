@@ -48,6 +48,15 @@ const App: React.FC = () => {
     // Initialize Input Listeners
     inputRef.current.bindEvents();
     mouseRef.current.bindEvents();
+      // Prevent TAB from cycling browser focus when game is active
+      const handleTabKey = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsMenuOpen(prev => !prev);
+        }
+      };
+      window.addEventListener('keydown', handleTabKey, true);
 
     // --- GAME LOOP ---
     const animate = (time: number) => {
@@ -98,6 +107,7 @@ const App: React.FC = () => {
       cancelAnimationFrame(requestRef.current);
       inputRef.current.cleanup();
       mouseRef.current.cleanup();
+        window.removeEventListener('keydown', handleTabKey, true);
     };
   }, [isMenuOpen]); 
 
