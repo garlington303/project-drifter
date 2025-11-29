@@ -1,14 +1,15 @@
 
 import { GAME_CONFIG, Rect, TileType, TILE_DEFS, Vector2D } from '../utils/gameUtils';
+import { textureManager } from './TextureManager';
 
 export class WorldSystem {
-  chunks: Map<string, TileType[][]> = new Map();
+  chunks: Map<string, { tiles: TileType[][], seed: number }> = new Map();
   
   constructor() {
     this.getChunk(0, 0);
   }
 
-  getChunk(cx: number, cy: number): TileType[][] {
+  getChunk(cx: number, cy: number): { tiles: TileType[][], seed: number } {
     const key = `${cx},${cy}`;
     if (this.chunks.has(key)) {
       return this.chunks.get(key)!;
@@ -18,7 +19,7 @@ export class WorldSystem {
     return chunk;
   }
 
-  private generateChunk(cx: number, cy: number): TileType[][] {
+  private generateChunk(cx: number, cy: number): { tiles: TileType[][], seed: number } {
     const tiles: TileType[][] = [];
     const size = GAME_CONFIG.chunkSize;
     
@@ -95,7 +96,7 @@ export class WorldSystem {
       }
       tiles.push(row);
     }
-    return tiles;
+    return { tiles, seed: cx * 1234 + cy * 5678 };
   }
 
   // --- UTILS ---
@@ -141,7 +142,7 @@ export class WorldSystem {
     if (ly < 0) ly += cs;
 
     const chunk = this.getChunk(cx, cy);
-    return chunk[ly][lx];
+    return chunk.tiles[ly][lx];
   }
 
   // Simplified collision check using TILE_DEFS
@@ -178,6 +179,12 @@ export class WorldSystem {
     const startCY = Math.floor(camera.y / chunkSizePx) - 1;
     const endCY = Math.floor((camera.y + canvasHeight) / chunkSizePx) + 1;
 
+    // Disable image smoothing for pixel art look
+    ctx.imageSmoothingEnabled = false;
+
+    let drawCount = 0;
+    let textureCount = 0;
+
     for (let cy = startCY; cy <= endCY; cy++) {
       for (let cx = startCX; cx <= endCX; cx++) {
         const chunk = this.getChunk(cx, cy);
@@ -186,54 +193,77 @@ export class WorldSystem {
 
         for (let y = 0; y < cs; y++) {
           for (let x = 0; x < cs; x++) {
-            const tile = chunk[y][x];
+            // Access tiles from the object structure
+            const tile = chunk.tiles[y][x];
             const def = TILE_DEFS[tile];
             const posX = chunkX + x * ts;
             const posY = chunkY + y * ts;
 
-            // Base Color
-            ctx.fillStyle = def.color;
-            
-            // Texture Variation (Checkerboard / Noise)
-            if ((x + y + cx + cy) % 2 === 0) {
-                // Slightly lighter overlay
-                ctx.globalAlpha = 0.05;
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(posX, posY, ts, ts);
-                ctx.fillStyle = def.color; // Reset
-                ctx.globalAlpha = 1.0;
-            } else {
-                ctx.fillRect(posX, posY, ts, ts);
-            }
+            // Global tile coordinates for deterministic seeding
+            const globalX = cx * cs + x;
+            const globalY = cy * cs + y;
+            // Use chunk seed + offset
+            const seed = chunk.seed + (y * cs + x);
 
-            // --- DECORATION ---
-            if (tile === TileType.Cliff) {
-                // Rock Wall Effect
-                ctx.fillStyle = '#1f2937'; // Darker gray
-                ctx.fillRect(posX, posY, ts, ts);
-                // Highlight top
-                ctx.fillStyle = '#4b5563';
-                ctx.fillRect(posX, posY, ts, 10);
-                // Shadow bottom
-                ctx.fillStyle = '#111827';
-                ctx.fillRect(posX, posY + ts - 10, ts, 10);
-            }
-            else if (tile === TileType.Forest || tile === TileType.DeepForest) {
-                // Tree circles
-                ctx.fillStyle = tile === TileType.Forest ? '#14532d' : '#022c22';
-                ctx.beginPath();
-                ctx.arc(posX + ts/2, posY + ts/2, ts/3, 0, Math.PI*2);
-                ctx.fill();
-            }
-            else if (tile === TileType.Water) {
-                // Simple animated sparkle placeholder (static for now)
-                ctx.fillStyle = '#60a5fa';
-                ctx.fillRect(posX + 10, posY + 10, 8, 4);
-            }
-            else if (tile === TileType.Road) {
-                // Road grit
-                ctx.fillStyle = '#92400e';
-                ctx.fillRect(posX + ts/2 - 2, posY, 4, ts);
+            // REMOVED FAULTY CULLING - It was comparing World Coordinates to Screen Dimensions
+            // if (posX < -ts || posX > canvasWidth || posY < -ts || posY > canvasHeight) continue;
+
+            drawCount++;
+
+            // Try to get texture
+            const texture = textureManager.getTexture(tile, seed);
+            
+            if (texture) {
+              // Draw Texture
+              ctx.drawImage(texture, posX, posY, ts, ts);
+              textureCount++;
+            } else {
+              // Fallback to colored squares if texture missing or not loaded
+              if (def) {
+                  ctx.fillStyle = def.color;
+                  
+                  // Texture Variation (Checkerboard / Noise)
+                  if ((x + y + cx + cy) % 2 === 0) {
+                      // Slightly lighter overlay
+                      ctx.globalAlpha = 0.05;
+                      ctx.fillStyle = '#ffffff';
+                      ctx.fillRect(posX, posY, ts, ts);
+                      ctx.fillStyle = def.color; // Reset
+                      ctx.globalAlpha = 1.0;
+                  } else {
+                      ctx.fillRect(posX, posY, ts, ts);
+                  }
+
+                  // --- DECORATION FALLBACKS ---
+                  if (tile === TileType.Cliff) {
+                      // Rock Wall Effect
+                      ctx.fillStyle = '#1f2937'; // Darker gray
+                      ctx.fillRect(posX, posY, ts, ts);
+                      // Highlight top
+                      ctx.fillStyle = '#4b5563';
+                      ctx.fillRect(posX, posY, ts, 10);
+                      // Shadow bottom
+                      ctx.fillStyle = '#111827';
+                      ctx.fillRect(posX, posY + ts - 10, ts, 10);
+                  }
+                  else if (tile === TileType.Forest || tile === TileType.DeepForest) {
+                      // Tree circles
+                      ctx.fillStyle = tile === TileType.Forest ? '#14532d' : '#022c22';
+                      ctx.beginPath();
+                      ctx.arc(posX + ts/2, posY + ts/2, ts/3, 0, Math.PI*2);
+                      ctx.fill();
+                  }
+                  else if (tile === TileType.Water) {
+                      // Simple animated sparkle placeholder (static for now)
+                      ctx.fillStyle = '#60a5fa';
+                      ctx.fillRect(posX + 10, posY + 10, 8, 4);
+                  }
+                  else if (tile === TileType.Road) {
+                      // Road grit
+                      ctx.fillStyle = '#92400e';
+                      ctx.fillRect(posX + ts/2 - 2, posY, 4, ts);
+                  }
+              }
             }
           }
         }

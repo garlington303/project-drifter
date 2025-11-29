@@ -9,6 +9,9 @@ import { InventorySystem } from './systems/InventorySystem';
 import { EquipmentSystem } from './systems/EquipmentSystem';
 import { PlayerEntity } from './entities/PlayerEntity';
 import { UnifiedMenuUI } from './components/UnifiedMenuUI';
+import { AssetLoader } from './systems/AssetLoader';
+import { textureManager } from './systems/TextureManager';
+import { LoadingScreen } from './components/LoadingScreen';
 
 const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,8 +33,30 @@ const App: React.FC = () => {
   // React UI State
   const [debugInfo, setDebugInfo] = useState({ x: 0, y: 0, fps: 0, rot: 0, bullets: 0 });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(0);
 
   useEffect(() => {
+    // Load Assets
+    const loadGameAssets = async () => {
+      const loader = new AssetLoader();
+      const assets = await loader.loadAllAssets((progress) => {
+        setLoadProgress(progress);
+      });
+      textureManager.initialize(assets);
+      
+      // Small delay to show 100%
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+    };
+
+    loadGameAssets();
+  }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -48,6 +73,7 @@ const App: React.FC = () => {
     // Initialize Input Listeners
     inputRef.current.bindEvents();
     mouseRef.current.bindEvents();
+    
       // Prevent TAB from cycling browser focus when game is active
       const handleTabKey = (e: KeyboardEvent) => {
         if (e.key === 'Tab') {
@@ -60,6 +86,7 @@ const App: React.FC = () => {
 
     // --- GAME LOOP ---
     const animate = (time: number) => {
+      // console.log("[App] Frame", time); // Uncomment for spammy debug
       if (previousTimeRef.current === undefined || previousTimeRef.current === 0) previousTimeRef.current = time;
       const deltaTime = (time - previousTimeRef.current) / 1000;
       previousTimeRef.current = time;
@@ -109,7 +136,7 @@ const App: React.FC = () => {
       mouseRef.current.cleanup();
         window.removeEventListener('keydown', handleTabKey, true);
     };
-  }, [isMenuOpen]); 
+  }, [isMenuOpen, isLoading]); 
 
   const update = (dt: number, canvas: HTMLCanvasElement) => {
     const player = playerRef.current;
@@ -217,6 +244,8 @@ const App: React.FC = () => {
 
   return (
     <div className={`relative w-screen h-screen overflow-hidden bg-black ${isMenuOpen ? 'cursor-default' : 'cursor-none'}`}>
+      {isLoading && <LoadingScreen progress={loadProgress} />}
+      
       <canvas ref={canvasRef} className="block" />
       
       {/* HUD Overlay - Hidden when menu is open */}
