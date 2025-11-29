@@ -1,6 +1,5 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { GAME_CONFIG } from './utils/gameUtils';
 import { AssetLoader } from './utils/AssetLoader';
 import { InputSystem } from './systems/InputSystem';
 import { MouseSystem } from './systems/MouseSystem';

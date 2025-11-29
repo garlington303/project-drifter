@@ -2,10 +2,10 @@
 export const ASSET_PATHS = {
   tiles: {
     grass: '/textures/grass.png',
-    stone: '/textures/stone.png',
-    dirt: '/textures/dirt.png',
-    water: '/textures/water.png',
-    sand: '/textures/sand.png',
+    stone: '/textures/cobblestone.png',
+    dirt: '/textures/dirt-1.png',
+    water: '/textures/water-1.png',
+    sand: '/textures/sandy-dirt.png',
   }
 };
 
@@ -20,7 +20,7 @@ export class AssetLoader {
 
     // Simulate a small delay or check for cached images to ensure UI updates
     const promises = tileKeys.map(key => {
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve) => {
         const img = new Image();
         img.src = ASSET_PATHS.tiles[key as keyof typeof ASSET_PATHS.tiles];
         

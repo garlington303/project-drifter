@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, CircleDashed, Circle } from 'lucide-react';
+import { CheckCircle2, CircleDashed } from 'lucide-react';
 
 interface StatusCardProps {
   icon: React.ReactNode;

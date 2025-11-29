@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * PROJECT DRIFTER - PHASE 1: FOUNDATION
@@ -129,7 +129,7 @@ class PlayerEntity {
     this.rotation = 0;
   }
 
-  update(dt: number, input: InputSystem, cameraPos: Vector2D, canvasCenter: Vector2D) {
+  update(dt: number, input: InputSystem, canvasCenter: Vector2D) {
     // 1. Rotation (Look at Mouse)
     // We calculate vector from Center of Screen (where player is) to Mouse
     const dx = input.state.mouse.x - canvasCenter.x;
@@ -278,7 +278,7 @@ export default function ProjectDrifter() {
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
 
     // 1. Update Player
-    player.update(dt, input, camera, center);
+    player.update(dt, input, center);
 
     // 2. Edge Wrapping (Toroidal World)
     // If player goes off right, teleport to left, etc.

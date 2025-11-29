@@ -90,7 +90,7 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
     }
   };
 
-  const handleDragEnd = (e: React.DragEvent) => {
+  const handleDragEnd = () => {
     setDragSource(null);
     setHoverTarget(null);
   };
@@ -103,12 +103,6 @@ export const InventoryPanel: React.FC<InventoryPanelProps> = ({ inventory, equip
   const handleDragEnter = (e: React.DragEvent, target: DropTarget) => {
     e.preventDefault();
     setHoverTarget(target);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    // We rely mostly on DragEnter updating the target, but we can clear if we leave the valid zone completely.
-    // However, firing this on child elements can cause flickering, so we simply don't reset here 
-    // and rely on DragEnter of another slot or DragEnd to clear.
   };
 
   // --- DROP HANDLERS ---

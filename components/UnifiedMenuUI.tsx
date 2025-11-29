@@ -23,12 +23,11 @@ export const UnifiedMenuUI: React.FC<UnifiedMenuUIProps> = ({
   isOpen, 
   inventory, 
   equipment, 
-  player,
-  input
+  player
 }) => {
   const [activeTab, setActiveTab] = useState<Tab>('inventory');
   // Hack to force re-render when inventory changes
-  const [updateCounter, setUpdateCounter] = useState(0); 
+  const [, setUpdateCounter] = useState(0); 
   const forceUpdate = () => setUpdateCounter(c => c + 1);
 
   // Listen for Number Keys to switch tabs

@@ -1,5 +1,5 @@
 
-import { Vector2D, TILE_DEFS } from '../utils/gameUtils';
+import { TILE_DEFS } from '../utils/gameUtils';
 import { WorldSystem } from './WorldSystem';
 
 interface Projectile {
