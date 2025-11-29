@@ -29,7 +29,7 @@ export class InputSystem {
   private prevKeys: Partial<InputKeys> = {};
 
   constructor() {
-    // Events are bound manually via bindEvents()
+    this.bindEvents();
   }
 
   bindEvents() {
@@ -57,6 +57,9 @@ export class InputSystem {
   }
 
   private handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Tab') {
+        e.preventDefault();
+    }
     this.setKey(e.key, true);
   };
 

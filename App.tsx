@@ -16,10 +16,13 @@ import { LoadingScreen } from './components/LoadingScreen';
 const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Game Systems & Entities
+  // Game Systems with Side Effects (Input/Mouse)
+  // We lazy initialize these in a useEffect to avoid constructor side effects during render
+  const inputRef = useRef<InputSystem | null>(null);
+  const mouseRef = useRef<MouseSystem | null>(null);
+  
+  // Logic Systems & Entities (Safe to keep as Refs)
   const playerRef = useRef(new PlayerEntity(0, 0));
-  const inputRef = useRef(new InputSystem());
-  const mouseRef = useRef(new MouseSystem());
   const projectileSystemRef = useRef(new ProjectileSystem());
   const worldSystemRef = useRef(new WorldSystem());
   const inventorySystemRef = useRef(new InventorySystem());
@@ -33,10 +36,17 @@ const App: React.FC = () => {
   // React UI State
   const [debugInfo, setDebugInfo] = useState({ x: 0, y: 0, fps: 0, rot: 0, bullets: 0 });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+<<<<<<< HEAD
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
+=======
+  const [systemsReady, setSystemsReady] = useState(false);
+>>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
 
+  // 1. SYSTEM LIFECYCLE MANAGEMENT
+  // Initialize input listeners once on mount, cleanup on unmount.
   useEffect(() => {
+<<<<<<< HEAD
     // Load Assets
     const loadGameAssets = async () => {
       const loader = new AssetLoader();
@@ -56,6 +66,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isLoading) return;
+=======
+    inputRef.current = new InputSystem();
+    mouseRef.current = new MouseSystem();
+    setSystemsReady(true);
+
+    return () => {
+      inputRef.current?.cleanup();
+      mouseRef.current?.cleanup();
+    };
+  }, []);
+
+  // 2. GAME LOOP
+  useEffect(() => {
+    if (!systemsReady || !inputRef.current || !mouseRef.current) return;
+>>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -70,6 +95,7 @@ const App: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
 
+<<<<<<< HEAD
     // Initialize Input Listeners
     inputRef.current.bindEvents();
     mouseRef.current.bindEvents();
@@ -85,6 +111,9 @@ const App: React.FC = () => {
       window.addEventListener('keydown', handleTabKey, true);
 
     // --- GAME LOOP ---
+=======
+    // Animation Loop
+>>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
     const animate = (time: number) => {
       // console.log("[App] Frame", time); // Uncomment for spammy debug
       if (previousTimeRef.current === undefined || previousTimeRef.current === 0) previousTimeRef.current = time;
@@ -93,25 +122,24 @@ const App: React.FC = () => {
 
       const safeDt = Math.min(deltaTime, 0.1); 
 
-      // 1. Check Menu Toggle
-      // We check inputRef directly inside the loop
-      if (inputRef.current.isJustPressed('tab')) {
+      // Input Checking
+      if (inputRef.current!.isJustPressed('tab')) {
          setIsMenuOpen(prev => !prev);
       }
-      if (inputRef.current.isJustPressed('escape') && isMenuOpen) {
+      if (inputRef.current!.isJustPressed('escape')) {
          setIsMenuOpen(false);
       }
 
-      // 2. Update Logic (Only if not paused)
+      // Update Logic (Only if not paused)
       if (!isMenuOpen) {
           update(safeDt, canvas);
       }
       
-      // 3. Render (Always render to keep background visible)
+      // Render (Always)
       render(ctx, canvas);
 
-      // 4. Input Cleanup (Must happen end of frame)
-      inputRef.current.updatePreviousState();
+      // Input Cleanup (End of frame)
+      inputRef.current!.updatePreviousState();
 
       // UI Update (Throttled)
       if (Math.floor(time) % 10 === 0) {
@@ -132,13 +160,16 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(requestRef.current);
-      inputRef.current.cleanup();
-      mouseRef.current.cleanup();
-        window.removeEventListener('keydown', handleTabKey, true);
     };
+<<<<<<< HEAD
   }, [isMenuOpen, isLoading]); 
+=======
+  }, [isMenuOpen, systemsReady]); // Re-run loop when menu toggles, but DON'T cleanup systems
+>>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
 
   const update = (dt: number, canvas: HTMLCanvasElement) => {
+    if (!inputRef.current || !mouseRef.current) return;
+
     const player = playerRef.current;
     const input = inputRef.current;
     const mouse = mouseRef.current;
@@ -148,21 +179,23 @@ const App: React.FC = () => {
     const camera = cameraRef.current;
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
 
-    // 1. Update Input Systems
+    // Update Input
     mouse.update(camera);
 
-    // 2. Update Player (Handles Collision internally via WorldSystem)
+    // Update Player
     player.update(dt, input, mouse.state, projectiles, world, equipment);
 
-    // 3. Update Projectiles
+    // Update Projectiles
     projectiles.update(dt, world);
 
-    // 4. Camera System
+    // Update Camera
     camera.x = player.pos.x - center.x;
     camera.y = player.pos.y - center.y;
   };
 
   const render = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+    if (!mouseRef.current) return;
+
     const player = playerRef.current;
     const mouse = mouseRef.current;
     const projectiles = projectileSystemRef.current;
@@ -174,13 +207,11 @@ const App: React.FC = () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    // Apply Camera Transform
     ctx.translate(-camera.x, -camera.y);
 
-    // -- WORLD RENDERING --
     world.draw(ctx, camera, canvas.width, canvas.height);
 
-    // Aim Line (Debug visual)
+    // Aim Line
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     ctx.setLineDash([5, 5]);
@@ -190,13 +221,10 @@ const App: React.FC = () => {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // Projectiles
     projectiles.draw(ctx);
-
-    // Player
     player.draw(ctx);
 
-    // Mouse Cursor (World Space representation - Only if NOT paused)
+    // Mouse Cursor (In World)
     if (!isMenuOpen) {
         ctx.fillStyle = '#22c55e';
         ctx.beginPath();
@@ -212,13 +240,11 @@ const App: React.FC = () => {
 
     ctx.restore();
 
-    // -- HUD / SCREEN SPACE RENDERING --
-    // Only draw HUD if NOT paused
+    // HUD
     if (!isMenuOpen) {
         const screenMouseX = mouse.state.screenX;
         const screenMouseY = mouse.state.screenY;
 
-        // Draw Dash Charges
         const chargeBarWidth = 24;
         const chargeBarHeight = 6;
         const chargeSpacing = 4;
@@ -242,13 +268,14 @@ const App: React.FC = () => {
     }
   };
 
+  if (!systemsReady) return <div className="bg-black w-screen h-screen" />;
+
   return (
     <div className={`relative w-screen h-screen overflow-hidden bg-black ${isMenuOpen ? 'cursor-default' : 'cursor-none'}`}>
       {isLoading && <LoadingScreen progress={loadProgress} />}
       
       <canvas ref={canvasRef} className="block" />
       
-      {/* HUD Overlay - Hidden when menu is open */}
       {!isMenuOpen && (
         <div className="absolute top-5 left-5 pointer-events-none select-none">
             <h2 className="m-0 text-emerald-400 font-bold text-lg font-mono">PROJECT DRIFTER</h2>
@@ -269,13 +296,15 @@ const App: React.FC = () => {
       )}
 
       {/* Unified Menu Overlay */}
-      <UnifiedMenuUI 
-        isOpen={isMenuOpen}
-        inventory={inventorySystemRef.current}
-        equipment={equipmentSystemRef.current}
-        player={playerRef.current}
-        input={inputRef.current}
-      />
+      {inputRef.current && (
+          <UnifiedMenuUI 
+            isOpen={isMenuOpen}
+            inventory={inventorySystemRef.current}
+            equipment={equipmentSystemRef.current}
+            player={playerRef.current}
+            input={inputRef.current}
+          />
+      )}
 
     </div>
   );
