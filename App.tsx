@@ -36,17 +36,13 @@ const App: React.FC = () => {
   // React UI State
   const [debugInfo, setDebugInfo] = useState({ x: 0, y: 0, fps: 0, rot: 0, bullets: 0 });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-<<<<<<< HEAD
   const [isLoading, setIsLoading] = useState(true);
   const [loadProgress, setLoadProgress] = useState(0);
-=======
   const [systemsReady, setSystemsReady] = useState(false);
->>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
 
   // 1. SYSTEM LIFECYCLE MANAGEMENT
   // Initialize input listeners once on mount, cleanup on unmount.
   useEffect(() => {
-<<<<<<< HEAD
     // Load Assets
     const loadGameAssets = async () => {
       const loader = new AssetLoader();
@@ -54,33 +50,22 @@ const App: React.FC = () => {
         setLoadProgress(progress);
       });
       textureManager.initialize(assets);
-      
-      // Small delay to show 100%
       setTimeout(() => {
         setIsLoading(false);
       }, 500);
     };
-
     loadGameAssets();
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
-=======
     inputRef.current = new InputSystem();
     mouseRef.current = new MouseSystem();
     setSystemsReady(true);
-
     return () => {
       inputRef.current?.cleanup();
       mouseRef.current?.cleanup();
     };
   }, []);
-
-  // 2. GAME LOOP
-  useEffect(() => {
-    if (!systemsReady || !inputRef.current || !mouseRef.current) return;
->>>>>>> 9478edd982fbe42337f30c2925b7370adb000360
 
     const canvas = canvasRef.current;
     if (!canvas) return;
