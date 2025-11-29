@@ -4,7 +4,7 @@ import { InventorySystem } from '../systems/InventorySystem';
 import { EquipmentSystem } from '../systems/EquipmentSystem';
 import { PlayerEntity } from '../entities/PlayerEntity';
 import { InputSystem } from '../systems/InputSystem';
-import { InventoryPanel } from './InventoryPanelNew';
+import { InventoryPanel } from './InventoryPanel';
 import { StatsPanel } from './StatsPanel';
 import { SkillsPanel } from './SkillsPanel';
 import { QuestsPanel } from './QuestsPanel';
@@ -37,19 +37,15 @@ export const UnifiedMenuUI: React.FC<UnifiedMenuUIProps> = ({
 
     // We check the input system state here roughly every frame via the parent loop, 
     // but for UI responsiveness inside the React tree, we can just use a native listener.
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          e.stopPropagation();
-          // Optionally close menu if open, or do nothing if handled in App.tsx
-        }
+    const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === '1') setActiveTab('inventory');
         if (e.key === '2') setActiveTab('stats');
         if (e.key === '3') setActiveTab('skills');
         if (e.key === '4') setActiveTab('quests');
-      };
-      window.addEventListener('keydown', handleKeyDown, true);
-      return () => window.removeEventListener('keydown', handleKeyDown, true);
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
   if (!isOpen) return null;

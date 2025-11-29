@@ -11,6 +11,11 @@ interface StatsPanelProps {
 export const StatsPanel: React.FC<StatsPanelProps> = ({ player, equipment }) => {
   const bonus = equipment.getTotalBonusStats();
   
+  // Calculate total max health including equipment bonuses
+  const totalMaxHealth = player.maxHealth + (bonus.health || 0);
+  // Calculate percentage for the bar width
+  const hpPercent = Math.max(0, Math.min(100, (player.currentHealth / totalMaxHealth) * 100));
+  
   // Helper to render a stat row
   const StatRow = ({ label, base, bonusVal, unit = '' }: { label: string, base: number, bonusVal?: number, unit?: string }) => (
     <div className="flex justify-between items-center py-3 border-b border-neutral-800 last:border-0 hover:bg-neutral-900/30 px-2 rounded transition-colors">
@@ -33,14 +38,19 @@ export const StatsPanel: React.FC<StatsPanelProps> = ({ player, equipment }) => 
          <div className="flex-1">
             <h2 className="text-2xl font-bold text-white tracking-wider">DRIFTER</h2>
             <div className="text-emerald-400 font-mono text-sm mb-2">LEVEL {player.level} SURVIVOR</div>
+            
             <div className="w-full bg-neutral-800 h-3 rounded-full overflow-hidden border border-neutral-700">
-                <div className="bg-emerald-600 h-full w-[85%] relative overflow-hidden">
+                <div 
+                    className="bg-emerald-600 h-full relative overflow-hidden transition-all duration-300 ease-out" 
+                    style={{ width: `${hpPercent}%` }}
+                >
                     <div className="absolute inset-0 bg-white/20 skew-x-12 -ml-4 w-4"></div>
                 </div>
             </div>
+            
             <div className="flex justify-between text-xs mt-1 font-mono text-neutral-500">
                <span>XP: 8,500 / 10,000</span>
-               <span>{player.currentHealth} / {player.maxHealth} HP</span>
+               <span>{player.currentHealth} / {totalMaxHealth} HP</span>
             </div>
          </div>
       </div>
