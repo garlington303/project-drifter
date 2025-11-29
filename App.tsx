@@ -45,6 +45,10 @@ const App: React.FC = () => {
     handleResize();
     window.addEventListener('resize', handleResize);
 
+    // Initialize Input Listeners
+    inputRef.current.bindEvents();
+    mouseRef.current.bindEvents();
+
     // --- GAME LOOP ---
     const animate = (time: number) => {
       if (previousTimeRef.current === undefined || previousTimeRef.current === 0) previousTimeRef.current = time;

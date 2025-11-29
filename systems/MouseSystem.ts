@@ -16,7 +16,7 @@ export class MouseSystem {
   };
 
   constructor() {
-    this.bindEvents();
+    // Events are bound manually via bindEvents()
   }
 
   bindEvents() {

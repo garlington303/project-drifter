@@ -29,7 +29,7 @@ export class InputSystem {
   private prevKeys: Partial<InputKeys> = {};
 
   constructor() {
-    this.bindEvents();
+    // Events are bound manually via bindEvents()
   }
 
   bindEvents() {
