@@ -1,0 +1,5 @@
+{
+  "name": "Project Drifter Prototype",
+  "description": "A minimal, high-performance top-down movement prototype focusing on control feel and readability using React and HTML5 Canvas.",
+  "requestFramePermissions": []
+}
