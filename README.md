@@ -1,4 +1,5 @@
-<img width="1024" height="434" alt="image" src="https://github.com/user-attachments/assets/56646fb7-f4c5-4097-92ca-cc5b9a094467" />
+<img width="1024" height="434" alt="banner" src="https://github.com/user-attachments/assets/dc0f5557-0e15-47a7-bf70-ee982786db70" />
+
 
 Project Drifter is a 2D Top-Down extraction RPG with a combination of active real time systems similar to bullet-hell style combat with idle gameplay. 
 
