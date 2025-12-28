@@ -14,6 +14,23 @@ export interface PlayerState {
   maxShield: number;
   shieldRegenTimer: number;
   isDead: boolean;
+  lastDamageTime: number; // For hit feedback
+  // Progression
+  xp: number;
+  maxXp: number;
+  level: number;
+  kills: number;
+  levelUpTimer: number; // For level up feedback
+  // Auto-aim state
+  targetId: number | null;
+  retargetTimer: number;
+  aimError: number;
+  // Dash state
+  dashCharges: number;
+  maxDashCharges: number;
+  dashCooldownTimer: number; // Time until next charge
+  isDashing: boolean;
+  dashDurationTimer: number; // Duration of the active dash move
 }
 
 export interface Enemy {
@@ -27,6 +44,10 @@ export interface Enemy {
   color: string;
   glowColor: string;
   damage: number;
+  // Physics & State
+  knockback: Vector2;
+  lastHitTime: number;
+  flashTimer: number; // For hit feedback
 }
 
 export interface Projectile {
@@ -47,7 +68,7 @@ export interface InputState {
   down: boolean;
   left: boolean;
   right: boolean;
-  sprint: boolean;
+  dash: boolean;
 }
 
 export interface Particle {
@@ -58,4 +79,5 @@ export interface Particle {
   maxLife: number;
   color: string;
   size: number;
+  drag?: number;
 }

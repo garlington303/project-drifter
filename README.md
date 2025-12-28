@@ -1,12 +1,12 @@
-<img width="1024" height="434" alt="banner" src="https://github.com/user-attachments/assets/dc0f5557-0e15-47a7-bf70-ee982786db70" />
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
+# Run and deploy your AI Studio app
 
-Project Drifter is a 2D Top-Down extraction RPG with a combination of active real time systems similar to bullet-hell style combat with idle gameplay. 
+This contains everything you need to run your app locally.
 
-
-
-
-View prototype in AI Studio: https://ai.studio/apps/drive/1r5ZogqY_HxNYXnSJ3PFrQD0LI9fJTaX8
+View your app in AI Studio: https://ai.studio/apps/drive/1r5ZogqY_HxNYXnSJ3PFrQD0LI9fJTaX8
 
 ## Run Locally
 
@@ -15,6 +15,6 @@ View prototype in AI Studio: https://ai.studio/apps/drive/1r5ZogqY_HxNYXnSJ3PFrQ
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key (not needed for this project)
-3. Run the game server localhost:
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
    `npm run dev`

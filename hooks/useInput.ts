@@ -7,7 +7,7 @@ export const useInput = () => {
     down: false,
     left: false,
     right: false,
-    sprint: false,
+    dash: false,
   });
 
   useEffect(() => {
@@ -29,9 +29,8 @@ export const useInput = () => {
         case 'KeyD':
           inputRef.current.right = true;
           break;
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          inputRef.current.sprint = true;
+        case 'Space':
+          inputRef.current.dash = true;
           break;
       }
     };
@@ -54,9 +53,8 @@ export const useInput = () => {
         case 'KeyD':
           inputRef.current.right = false;
           break;
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          inputRef.current.sprint = false;
+        case 'Space':
+          inputRef.current.dash = false;
           break;
       }
     };
