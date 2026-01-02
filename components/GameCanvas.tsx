@@ -1,25 +1,21 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useInput } from '../hooks/useInput';
 import { GAME_CONFIG } from '../constants';
 import { Vec2 } from '../utils/vector';
 import { PlayerState, CameraState, Particle, Vector2, Enemy, Projectile } from '../types';
 import { VirtualJoystick } from './VirtualJoystick';
-import { SkillPanel } from './SkillPanel';
 
 export const GameCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useInput();
   const [gameOver, setGameOver] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [isLevelingUp, setIsLevelingUp] = useState(false);
   const pausedRef = useRef(false);
   
   // Joystick State refs
   const leftStickRef = useRef({ x: 0, y: 0, active: false });
   const rightStickRef = useRef({ x: 0, y: 0, active: false });
   const dashBtnRef = useRef(false);
-  const abilityBtnRef = useRef(false);
   
   // Feedback tracking
   const damageVignetteRef = useRef(0);
@@ -29,7 +25,6 @@ export const GameCanvas: React.FC = () => {
   const [gameMode, setGameMode] = useState<'idle' | 'active'>('idle');
   const gameModeRef = useRef<'idle' | 'active'>('idle');
   const isMouseDownRef = useRef(false);
-  const isRightMouseDownRef = useRef(false);
   const prevDashInputRef = useRef(false);
 
   const playerRef = useRef<PlayerState>({
@@ -49,9 +44,6 @@ export const GameCanvas: React.FC = () => {
     level: 1,
     kills: 0,
     levelUpTimer: 0,
-    isLevelUpActive: false,
-    damageMultiplier: 1,
-    shieldRegenMultiplier: 1,
     targetId: null,
     retargetTimer: 0,
     aimError: 0,
@@ -60,16 +52,6 @@ export const GameCanvas: React.FC = () => {
     dashCooldownTimer: 0,
     isDashing: false,
     dashDurationTimer: 0,
-    isScatterShotUnlocked: false,
-    scatterShotTimer: 0,
-    isChargingScatter: false,
-    scatterChargeTimer: 0,
-    skillLevels: {
-      kinetic_overload: 0,
-      shield_regen: 0,
-      dash_boost: 0,
-      scatter_shot: 0,
-    },
   });
   
   const cameraRef = useRef<CameraState>({
@@ -107,9 +89,6 @@ export const GameCanvas: React.FC = () => {
       level: 1,
       kills: 0,
       levelUpTimer: 0,
-      isLevelUpActive: false,
-      damageMultiplier: 1,
-      shieldRegenMultiplier: 1,
       targetId: null,
       retargetTimer: 0,
       aimError: 0,
@@ -118,16 +97,6 @@ export const GameCanvas: React.FC = () => {
       dashCooldownTimer: 0,
       isDashing: false,
       dashDurationTimer: 0,
-      isScatterShotUnlocked: false,
-      scatterShotTimer: 0,
-      isChargingScatter: false,
-      scatterChargeTimer: 0,
-      skillLevels: {
-        kinetic_overload: 0,
-        shield_regen: 0,
-        dash_boost: 0,
-        scatter_shot: 0,
-      },
     };
     
     cameraRef.current = {
@@ -150,12 +119,10 @@ export const GameCanvas: React.FC = () => {
     setGameMode('idle');
     gameModeRef.current = 'idle';
     isMouseDownRef.current = false;
-    isRightMouseDownRef.current = false;
     prevDashInputRef.current = false;
 
     setGameOver(false);
     setPaused(false);
-    setIsLevelingUp(false);
     pausedRef.current = false;
   };
 
@@ -278,83 +245,18 @@ export const GameCanvas: React.FC = () => {
     });
   };
 
-  const spawnGatheringParticle = (target: Vector2, color: string) => {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 50 + Math.random() * 30;
-    const pos = {
-      x: target.x + Math.cos(angle) * dist,
-      y: target.y + Math.sin(angle) * dist
-    };
-    
-    // Velocity towards center
-    const speed = 150;
-    const vel = {
-        x: -Math.cos(angle) * speed,
-        y: -Math.sin(angle) * speed
-    };
-
-    particlesRef.current.push({
-        id: Math.random(),
-        position: pos,
-        velocity: vel,
-        life: 0.3, // Short life to reach center roughly
-        maxLife: 0.3,
-        color: color,
-        size: 2,
-    });
-  };
-
   const handleLevelUp = () => {
     const player = playerRef.current;
     player.level++;
     player.xp -= player.maxXp;
     player.maxXp += GAME_CONFIG.PROGRESSION.XP_GROWTH;
     player.levelUpTimer = GAME_CONFIG.PLAYER.LEVEL_UP_FLASH_DURATION;
-    player.isLevelUpActive = true;
     
     player.health = Math.min(player.maxHealth, player.health + 20);
     player.shield = player.maxShield;
     
     createExplosion(player.position, '#fde047', 40);
     shakeRef.current = { timer: 0.3, intensity: 15 };
-    
-    // Trigger React State for UI
-    setIsLevelingUp(true);
-  };
-
-  const handleSkillSelect = (skillId: string) => {
-    const player = playerRef.current;
-    const config = (GAME_CONFIG.SKILL_CONFIG as any)[skillId];
-    const currentLevel = player.skillLevels[skillId] || 0;
-    const maxLevel = config?.MAX || 5;
-
-    if (currentLevel >= maxLevel) {
-      player.isLevelUpActive = false;
-      setIsLevelingUp(false);
-      return;
-    }
-
-    // Increment Rank
-    player.skillLevels[skillId] = currentLevel + 1;
-    
-    switch (skillId) {
-      case 'kinetic_overload':
-        player.damageMultiplier += config.BONUS;
-        break;
-      case 'shield_regen':
-        player.shieldRegenMultiplier += config.BONUS;
-        break;
-      case 'dash_boost':
-        player.maxDashCharges += config.BONUS;
-        player.dashCharges += config.BONUS;
-        break;
-      case 'scatter_shot':
-        player.isScatterShotUnlocked = true;
-        break;
-    }
-    
-    player.isLevelUpActive = false;
-    setIsLevelingUp(false);
   };
 
   const handleEnemyDefeat = (enemy: Enemy) => {
@@ -375,56 +277,6 @@ export const GameCanvas: React.FC = () => {
       playerRef.current.targetId = null;
       playerRef.current.retargetTimer = 0;
     }
-  };
-
-  const fireScatterShot = (chargeRatio: number) => {
-      const player = playerRef.current;
-      const { SCATTER_SHOT, SKILL_CONFIG } = GAME_CONFIG;
-      
-      const baseAngle = player.rotation;
-      
-      // Charge Modifiers
-      // Count: Base + up to 6 more
-      const totalCount = SCATTER_SHOT.COUNT + Math.floor(chargeRatio * SCATTER_SHOT.MAX_COUNT_ADDITION);
-      // Damage: Base * Multiplier (1.0 to 2.5)
-      const dmgMult = 1.0 + (chargeRatio * (SCATTER_SHOT.MAX_DAMAGE_MULTIPLIER - 1.0));
-      // Size: 3 to 6
-      const size = 3 * (1 + chargeRatio * (SCATTER_SHOT.MAX_SIZE_MULTIPLIER - 1.0));
-      // Spread: Tightens slightly at max charge? No, let's keep it chaotic but wider
-      const spread = SCATTER_SHOT.SPREAD * (1 + chargeRatio * 0.2); 
-
-      const startAngle = baseAngle - spread / 2;
-      const angleStep = spread / (totalCount - 1);
-
-      for (let i = 0; i < totalCount; i++) {
-          const angle = startAngle + (angleStep * i) + (Math.random() - 0.5) * 0.15;
-          const dirX = Math.cos(angle);
-          const dirY = Math.sin(angle);
-          
-          const speedVar = 0.9 + Math.random() * 0.2; // 90-110% speed variance
-
-          projectilesRef.current.push({
-              id: Math.random(),
-              position: { x: player.position.x + dirX * player.radius, y: player.position.y + dirY * player.radius },
-              velocity: { x: dirX * SCATTER_SHOT.SPEED * speedVar, y: dirY * SCATTER_SHOT.SPEED * speedVar },
-              radius: size, 
-              life: SCATTER_SHOT.LIFE * (1 + chargeRatio * 0.5), // Lives longer if charged
-              color: chargeRatio > 0.8 ? '#f0abfc' : SCATTER_SHOT.COLOR, // Lighter purple at max charge
-              damage: SCATTER_SHOT.DAMAGE * dmgMult
-          });
-      }
-
-      // Calculate effective cooldown: Base - (RankBonus if Rank 2)
-      // Cooldown increases slightly if fully charged to balance? Let's keep it flat for now, feels better.
-      const rankBonus = player.skillLevels['scatter_shot'] >= 2 ? SKILL_CONFIG.scatter_shot.BONUS : 0;
-      player.scatterShotTimer = SCATTER_SHOT.COOLDOWN - rankBonus;
-      
-      const shakeAmt = 12 + (chargeRatio * 18); // 12 to 30 shake
-      shakeRef.current = { timer: 0.2, intensity: shakeAmt };
-      
-      // Recoil
-      const recoilForce = SCATTER_SHOT.RECOIL * (1 + chargeRatio);
-      player.velocity = Vec2.sub(player.velocity, Vec2.scale({x: Math.cos(baseAngle), y: Math.sin(baseAngle)}, recoilForce));
   };
 
   const calculateAIMovement = (player: PlayerState, enemies: Enemy[]) => {
@@ -490,11 +342,7 @@ export const GameCanvas: React.FC = () => {
   };
 
   const update = (deltaTime: number, width: number, height: number) => {
-    const player = playerRef.current;
-    
-    // Freeze logic for Level Up and Hit Stop
-    if (player.isLevelUpActive) return;
-
+    // Hit Stop Logic: freeze physics updates if active
     if (hitStopTimerRef.current > 0) {
       hitStopTimerRef.current -= deltaTime;
       if (hitStopTimerRef.current < 0) hitStopTimerRef.current = 0;
@@ -502,6 +350,7 @@ export const GameCanvas: React.FC = () => {
     }
 
     const input = inputRef.current;
+    const player = playerRef.current;
     const camera = cameraRef.current;
     globalTimeRef.current += deltaTime;
 
@@ -517,15 +366,11 @@ export const GameCanvas: React.FC = () => {
       player.position = Vec2.add(player.position, Vec2.scale(player.velocity, deltaTime));
       return;
     }
-    
-    if (player.scatterShotTimer > 0) {
-        player.scatterShotTimer = Math.max(0, player.scatterShotTimer - deltaTime);
-    }
 
     // Shield Regen
     player.shieldRegenTimer += deltaTime;
     if (player.shieldRegenTimer >= GAME_CONFIG.PLAYER.SHIELD_REGEN_DELAY && player.shield < player.maxShield) {
-      player.shield += GAME_CONFIG.PLAYER.SHIELD_REGEN_RATE * player.shieldRegenMultiplier * deltaTime;
+      player.shield += GAME_CONFIG.PLAYER.SHIELD_REGEN_RATE * deltaTime;
       if (player.shield > player.maxShield) player.shield = player.maxShield;
     }
 
@@ -589,7 +434,7 @@ export const GameCanvas: React.FC = () => {
       }
     }
 
-    // Firing Logic (Primary)
+    // Firing Logic
     fireTimerRef.current += deltaTime;
     const isJoystickFiring = rightStickRef.current.active && (Math.pow(rightStickRef.current.x, 2) + Math.pow(rightStickRef.current.y, 2)) > 0.4;
     
@@ -603,8 +448,6 @@ export const GameCanvas: React.FC = () => {
           velocity: { x: dirX * GAME_CONFIG.WEAPON.PROJECTILE_SPEED, y: dirY * GAME_CONFIG.WEAPON.PROJECTILE_SPEED },
           radius: GAME_CONFIG.WEAPON.PROJECTILE_RADIUS,
           life: 2.0,
-          color: GAME_CONFIG.WEAPON.PROJECTILE_COLOR,
-          damage: GAME_CONFIG.WEAPON.DAMAGE
         });
         fireTimerRef.current = 0;
       }
@@ -615,43 +458,6 @@ export const GameCanvas: React.FC = () => {
     // Process Inputs
     const dashInput = input.dash || dashBtnRef.current;
     
-    // CHARGED ABILITY LOGIC (SCATTER SHOT)
-    const abilityHeld = abilityBtnRef.current || isRightMouseDownRef.current;
-
-    // Check if we start charging
-    if (abilityHeld && player.isScatterShotUnlocked && player.scatterShotTimer <= 0) {
-        player.isChargingScatter = true;
-        player.scatterChargeTimer += deltaTime;
-        if (player.scatterChargeTimer > GAME_CONFIG.SCATTER_SHOT.MAX_CHARGE_TIME) {
-            player.scatterChargeTimer = GAME_CONFIG.SCATTER_SHOT.MAX_CHARGE_TIME;
-        }
-        
-        // Spawn "gathering" particles
-        if (Math.random() < 0.3) {
-            spawnGatheringParticle(player.position, GAME_CONFIG.SCATTER_SHOT.COLOR);
-        }
-
-    } else {
-        // We are NOT holding the button
-        if (player.isChargingScatter) {
-            // RELEASED!
-            const chargeRatio = player.scatterChargeTimer / GAME_CONFIG.SCATTER_SHOT.MAX_CHARGE_TIME;
-            
-            // Only fire if held long enough to be intentional
-            if (chargeRatio > GAME_CONFIG.SCATTER_SHOT.MIN_CHARGE_THRESHOLD) {
-                fireScatterShot(chargeRatio);
-            } else {
-                // Too short, just reset or treat as tap
-                // Treat as min charge tap
-                fireScatterShot(0);
-            }
-            
-            // Reset State
-            player.isChargingScatter = false;
-            player.scatterChargeTimer = 0;
-        }
-    }
-
     // Joystick Move Logic
     if (leftStickRef.current.active) {
         moveDir.x = leftStickRef.current.x;
@@ -679,6 +485,7 @@ export const GameCanvas: React.FC = () => {
             }
         } else {
             // Mouse (Adjusted for Zoom)
+            // Transform screen mouse pos to world pos using current camera zoom and position
             const worldMouseX = (mouseRef.current.x - width / 2) / camera.zoom + camera.position.x;
             const worldMouseY = (mouseRef.current.y - height / 2) / camera.zoom + camera.position.y;
             
@@ -702,27 +509,15 @@ export const GameCanvas: React.FC = () => {
       player.isDashing = true; player.dashDurationTimer = GAME_CONFIG.PLAYER.DASH_DURATION;
       const dashDir = Vec2.mag(moveDir) === 0 ? { x: Math.cos(player.rotation), y: Math.sin(player.rotation) } : moveDir;
       player.velocity = Vec2.scale(dashDir, GAME_CONFIG.PLAYER.DASH_SPEED);
-      // Cancel Charge if dashing
-      player.isChargingScatter = false;
-      player.scatterChargeTimer = 0;
       shakeRef.current = { timer: 0.1, intensity: 5 };
       spawnTrail(player.position, player.velocity, true);
     }
 
     if (!player.isDashing) {
-      let speed = GAME_CONFIG.PLAYER.ACCELERATION;
-      let maxSpeed = GAME_CONFIG.PLAYER.MAX_SPEED;
-      
-      // Charge penalty
-      if (player.isChargingScatter) {
-          speed *= GAME_CONFIG.SCATTER_SHOT.CHARGE_MOVE_SPEED_PENALTY;
-          maxSpeed *= GAME_CONFIG.SCATTER_SHOT.CHARGE_MOVE_SPEED_PENALTY;
-      }
-      
-      player.velocity.x += moveDir.x * speed * deltaTime;
-      player.velocity.y += moveDir.y * speed * deltaTime;
+      player.velocity.x += moveDir.x * GAME_CONFIG.PLAYER.ACCELERATION * deltaTime;
+      player.velocity.y += moveDir.y * GAME_CONFIG.PLAYER.ACCELERATION * deltaTime;
       player.velocity = Vec2.scale(player.velocity, Math.pow(GAME_CONFIG.PLAYER.FRICTION, deltaTime * 120));
-      if (Vec2.mag(player.velocity) > maxSpeed) player.velocity = Vec2.scale(Vec2.normalize(player.velocity), maxSpeed);
+      if (Vec2.mag(player.velocity) > GAME_CONFIG.PLAYER.MAX_SPEED) player.velocity = Vec2.scale(Vec2.normalize(player.velocity), GAME_CONFIG.PLAYER.MAX_SPEED);
     } else player.velocity = Vec2.scale(player.velocity, Math.pow(0.98, deltaTime * 120));
     
     player.position = Vec2.add(player.position, Vec2.scale(player.velocity, deltaTime));
@@ -740,12 +535,10 @@ export const GameCanvas: React.FC = () => {
         for (let j = enemiesRef.current.length - 1; j >= 0; j--) {
           const e = enemiesRef.current[j];
           if (Vec2.dist(p.position, e.position) < p.radius + e.radius) {
-            // Apply Damage Multiplier
-            e.health -= p.damage * player.damageMultiplier;
-            
+            e.health -= GAME_CONFIG.WEAPON.DAMAGE;
             e.flashTimer = GAME_CONFIG.FEEDBACK.ENEMY_HIT_FLASH;
             removed = true;
-            createExplosion(p.position, p.color, 3);
+            createExplosion(p.position, GAME_CONFIG.WEAPON.PROJECTILE_COLOR, 3);
             
             // Hit Stop Trigger
             hitStopTimerRef.current = GAME_CONFIG.FEEDBACK.HIT_STOP_MS / 1000;
@@ -775,68 +568,6 @@ export const GameCanvas: React.FC = () => {
         const dir = Vec2.normalize(Vec2.sub(player.position, enemy.position));
         enemy.position.x += dir.x * enemy.speed * deltaTime; enemy.position.y += dir.y * enemy.speed * deltaTime;
         enemy.rotation = Math.atan2(dir.y, dir.x);
-      }
-
-      // World Boundary Collision with Ricochet
-      const halfW = GAME_CONFIG.WORLD.WIDTH / 2;
-      const halfH = GAME_CONFIG.WORLD.HEIGHT / 2;
-      const wallRestitution = 0.6; // Bounciness factor
-      const impactThreshold = GAME_CONFIG.DASH_ATTACK.WALL_IMPACT_THRESHOLD; 
-      
-      let hitWall = false;
-
-      // X Boundaries
-      if (enemy.position.x < -halfW + enemy.radius) {
-        enemy.position.x = -halfW + enemy.radius;
-        if (enemy.knockback.x < 0) {
-          if (Math.abs(enemy.knockback.x) > impactThreshold) {
-            hitWall = true;
-            createExplosion({ x: -halfW, y: enemy.position.y }, '#94a3b8', 6, Math.PI, 0); // Spalls right
-          }
-          enemy.knockback.x *= -wallRestitution;
-        }
-      } else if (enemy.position.x > halfW - enemy.radius) {
-        enemy.position.x = halfW - enemy.radius;
-        if (enemy.knockback.x > 0) {
-          if (Math.abs(enemy.knockback.x) > impactThreshold) {
-             hitWall = true;
-             createExplosion({ x: halfW, y: enemy.position.y }, '#94a3b8', 6, Math.PI, Math.PI); // Spalls left
-          }
-          enemy.knockback.x *= -wallRestitution;
-        }
-      }
-
-      // Y Boundaries
-      if (enemy.position.y < -halfH + enemy.radius) {
-        enemy.position.y = -halfH + enemy.radius;
-        if (enemy.knockback.y < 0) {
-          if (Math.abs(enemy.knockback.y) > impactThreshold) {
-            hitWall = true;
-            createExplosion({ x: enemy.position.x, y: -halfH }, '#94a3b8', 6, Math.PI, Math.PI / 2); // Spalls down
-          }
-          enemy.knockback.y *= -wallRestitution;
-        }
-      } else if (enemy.position.y > halfH - enemy.radius) {
-        enemy.position.y = halfH - enemy.radius;
-        if (enemy.knockback.y > 0) {
-          if (Math.abs(enemy.knockback.y) > impactThreshold) {
-            hitWall = true;
-            createExplosion({ x: enemy.position.x, y: halfH }, '#94a3b8', 6, Math.PI, -Math.PI / 2); // Spalls up
-          }
-          enemy.knockback.y *= -wallRestitution;
-        }
-      }
-
-      if (hitWall) {
-          enemy.health -= GAME_CONFIG.DASH_ATTACK.WALL_IMPACT_DAMAGE;
-          enemy.flashTimer = GAME_CONFIG.FEEDBACK.ENEMY_HIT_FLASH;
-          shakeRef.current = { timer: 0.1, intensity: 5 }; // Add a little shake for impact
-          
-          if (enemy.health <= 0) {
-              handleEnemyDefeat(enemy);
-              enemiesRef.current.splice(i, 1);
-              continue;
-          }
       }
 
       if (Vec2.dist(player.position, enemy.position) < player.radius + enemy.radius) {
@@ -910,6 +641,7 @@ export const GameCanvas: React.FC = () => {
       shakeY = (Math.random() - 0.5) * 2 * currentIntensity;
     }
     
+    // Apply camera position (negated because we are moving the world, not the camera)
     ctx.translate(-(camera.position.x + shakeX), -(camera.position.y + shakeY));
 
     drawGrid(ctx, camera.position, width, height);
@@ -917,57 +649,6 @@ export const GameCanvas: React.FC = () => {
     ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 10;
     const halfW = GAME_CONFIG.WORLD.WIDTH / 2, halfH = GAME_CONFIG.WORLD.HEIGHT / 2;
     ctx.strokeRect(-halfW, -halfH, GAME_CONFIG.WORLD.WIDTH, GAME_CONFIG.WORLD.HEIGHT);
-
-    // Visual Tethers for 'fast' enemies (Yellow Triangles)
-    if (!player.isDead) {
-      enemiesRef.current.forEach(enemy => {
-        if (enemy.type === 'fast') {
-          const dist = Vec2.dist(player.position, enemy.position);
-          const tetherRange = 600;
-          
-          if (dist < tetherRange) {
-            ctx.save();
-            const opacity = Math.max(0, 1 - (dist / tetherRange));
-            
-            // Pulsing effect
-            const pulse = (Math.sin(globalTimeRef.current * 15) + 1) * 0.5; // 0 to 1
-            
-            // Tether Line
-            ctx.beginPath();
-            ctx.moveTo(player.position.x, player.position.y);
-            ctx.lineTo(enemy.position.x, enemy.position.y);
-            ctx.strokeStyle = enemy.color;
-            ctx.lineWidth = 1 + pulse;
-            ctx.setLineDash([8, 8]);
-            ctx.lineDashOffset = -globalTimeRef.current * 150;
-            ctx.globalAlpha = opacity * 0.4;
-            ctx.stroke();
-
-            // Player-side Warning Indicator (Chevron)
-            const angle = Math.atan2(enemy.position.y - player.position.y, enemy.position.x - player.position.x);
-            const indicatorDist = player.radius + 24 + (pulse * 4);
-            
-            ctx.translate(player.position.x + Math.cos(angle) * indicatorDist, player.position.y + Math.sin(angle) * indicatorDist);
-            ctx.rotate(angle);
-            
-            ctx.fillStyle = enemy.color;
-            ctx.shadowColor = enemy.glowColor;
-            ctx.shadowBlur = 10;
-            ctx.globalAlpha = opacity * 0.9;
-            
-            ctx.beginPath();
-            ctx.moveTo(6, 0);
-            ctx.lineTo(-6, -5);
-            ctx.lineTo(-4, 0);
-            ctx.lineTo(-6, 5);
-            ctx.closePath();
-            ctx.fill();
-            
-            ctx.restore();
-          }
-        }
-      });
-    }
 
     // Particles
     particlesRef.current.forEach(p => {
@@ -978,8 +659,8 @@ export const GameCanvas: React.FC = () => {
 
     // Projectiles
     projectilesRef.current.forEach(p => {
-      ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = p.color;
-      ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.position.x, p.position.y, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      ctx.save(); ctx.shadowBlur = 10; ctx.shadowColor = GAME_CONFIG.WEAPON.PROJECTILE_COLOR;
+      ctx.fillStyle = GAME_CONFIG.WEAPON.PROJECTILE_COLOR; ctx.beginPath(); ctx.arc(p.position.x, p.position.y, p.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     });
 
     // Enemies
@@ -988,18 +669,23 @@ export const GameCanvas: React.FC = () => {
       ctx.translate(enemy.position.x, enemy.position.y);
       ctx.rotate(enemy.rotation);
       const isFlashing = enemy.flashTimer > 0;
+      
+      // Draw standard shapes for all types
       ctx.shadowBlur = isFlashing ? 15 : 10;
       ctx.shadowColor = isFlashing ? '#ffffff' : enemy.glowColor;
       ctx.fillStyle = isFlashing ? '#ffffff' : enemy.color;
       
       ctx.beginPath();
       if (enemy.type === 'heavy') {
+          // Square for heavy
           ctx.rect(-enemy.radius, -enemy.radius, enemy.radius * 2, enemy.radius * 2);
       } else if (enemy.type === 'fast') {
+          // Narrow Triangle/Arrow for fast
           ctx.moveTo(enemy.radius * 1.4, 0); 
           ctx.lineTo(-enemy.radius, -enemy.radius * 0.7); 
           ctx.lineTo(-enemy.radius, enemy.radius * 0.7);
       } else {
+          // Basic - Standard Triangle
           ctx.moveTo(enemy.radius * 1.2, 0);
           ctx.lineTo(-enemy.radius * 0.8, -enemy.radius);
           ctx.lineTo(-enemy.radius * 0.8, enemy.radius);
@@ -1007,6 +693,7 @@ export const GameCanvas: React.FC = () => {
       ctx.closePath(); 
       ctx.fill();
 
+      // Health bar (Shared)
       if (enemy.health < enemy.maxHealth) {
         const barY = enemy.radius + 8;
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(-enemy.radius, barY, enemy.radius * 2, 4);
@@ -1037,12 +724,12 @@ export const GameCanvas: React.FC = () => {
       ctx.shadowBlur = player.isDashing ? 35 : 20;
       if (isLevelUpFlashing) {
         ctx.shadowColor = '#fde047';
+        ctx.fillStyle = '#ffffff';
       } else {
         ctx.shadowColor = player.isDead ? '#475569' : (isPlayerFlashing ? '#ffffff' : (player.isDashing ? '#0ea5e9' : GAME_CONFIG.PLAYER.GLOW_COLOR));
+        ctx.fillStyle = player.isDead ? '#64748b' : (isPlayerFlashing ? '#ffffff' : (player.isDashing ? '#7dd3fc' : GAME_CONFIG.PLAYER.COLOR));
       }
       
-      // Pure Vector Drawing (Psyche sprite removed)
-      ctx.fillStyle = player.isDead ? '#64748b' : (isPlayerFlashing ? '#ffffff' : (player.isDashing ? '#7dd3fc' : GAME_CONFIG.PLAYER.COLOR));
       ctx.beginPath();
       ctx.moveTo(player.radius * 1.4, 0); ctx.lineTo(-player.radius, -player.radius); ctx.lineTo(-player.radius * 0.4, 0); ctx.lineTo(-player.radius, player.radius);
       ctx.closePath(); ctx.fill();
@@ -1051,40 +738,13 @@ export const GameCanvas: React.FC = () => {
       ctx.beginPath(); ctx.moveTo(player.radius * 0.6, 0); ctx.lineTo(-player.radius * 0.2, -player.radius * 0.3); ctx.lineTo(-player.radius * 0.2, player.radius * 0.3);
       ctx.closePath(); ctx.fill();
 
-      // Shield Visual
       if (player.shield > 1) {
         ctx.rotate(-player.rotation); ctx.shadowBlur = 10; ctx.shadowColor = GAME_CONFIG.PLAYER.SHIELD_GLOW;
         ctx.strokeStyle = GAME_CONFIG.PLAYER.SHIELD_COLOR; ctx.lineWidth = 2;
         ctx.globalAlpha = 0.3 + (player.shield / player.maxShield) * 0.4;
         ctx.beginPath(); ctx.arc(0, 0, player.radius + 6, 0, Math.PI * 2); ctx.stroke();
         ctx.fillStyle = GAME_CONFIG.PLAYER.SHIELD_COLOR; ctx.globalAlpha = 0.1; ctx.fill(); ctx.globalAlpha = 1.0;
-        ctx.rotate(player.rotation); // Restore for charge visual
       }
-
-      // Charge Visual (Ring)
-      if (player.isChargingScatter) {
-         const p = player.scatterChargeTimer / GAME_CONFIG.SCATTER_SHOT.MAX_CHARGE_TIME;
-         ctx.rotate(-player.rotation); // Ensure ring doesn't spin with player
-         
-         // Outer ring shrinking
-         const maxR = player.radius * 3.5;
-         const minR = player.radius * 1.2;
-         const currentR = maxR - (maxR - minR) * p;
-         
-         ctx.beginPath();
-         ctx.arc(0, 0, currentR, 0, Math.PI * 2);
-         ctx.strokeStyle = p > 0.95 ? '#f0abfc' : GAME_CONFIG.SCATTER_SHOT.COLOR;
-         ctx.lineWidth = 2;
-         ctx.stroke();
-
-         // Fill progress
-         ctx.beginPath();
-         ctx.arc(0, 0, player.radius * 1.5, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * p));
-         ctx.strokeStyle = GAME_CONFIG.SCATTER_SHOT.COLOR;
-         ctx.lineWidth = 3;
-         ctx.stroke();
-      }
-
       ctx.restore();
     }
     ctx.restore();
@@ -1105,16 +765,17 @@ export const GameCanvas: React.FC = () => {
   const drawHUD = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
     const player = playerRef.current;
     
-    // Global XP Gauge
+    // Global XP Gauge (Very top bar)
     const xpPercent = player.xp / player.maxXp;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
     ctx.fillRect(0, 0, width, 6);
     ctx.fillStyle = '#fde047'; 
-    ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(253, 224, 71, 0.5)';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(253, 224, 71, 0.5)';
     ctx.fillRect(0, 0, width * xpPercent, 6);
     ctx.shadowBlur = 0;
 
-    // Survival Timer
+    // Survival Timer & Kill Count
     const elapsed = Math.floor(globalTimeRef.current);
     const mins = Math.floor(elapsed / 60);
     const secs = elapsed % 60;
@@ -1123,7 +784,8 @@ export const GameCanvas: React.FC = () => {
     ctx.textAlign = 'center';
     ctx.font = 'bold 36px monospace';
     ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
-    ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.5)';
     ctx.fillText(timerStr, width / 2, 50);
     ctx.shadowBlur = 0;
 
@@ -1132,92 +794,128 @@ export const GameCanvas: React.FC = () => {
     ctx.fillStyle = '#94a3b8';
     ctx.fillText(`DEFEATED: ${player.kills}`, width / 2, 85);
 
-    // Status Cluster
+    // Intensity Gauge
+    const gaugeW = 200, gaugeH = 8, gaugeX = (width - gaugeW) / 2, gaugeY = 65;
+    const pressureProgress = (globalTimeRef.current % GAME_CONFIG.SCALING.PRESSURE_CYCLE_TIME) / GAME_CONFIG.SCALING.PRESSURE_CYCLE_TIME;
+    const isHighPressure = pressureProgress > 0.8;
+    const pulse = isHighPressure ? Math.abs(Math.sin(Date.now() / 200)) * 0.5 : 0;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.6)'; ctx.fillRect(gaugeX, gaugeY, gaugeW, gaugeH);
+    const gaugeColor = pressureProgress < 0.5 ? '#38bdf8' : (pressureProgress < 0.8 ? '#fbbf24' : '#ef4444');
+    ctx.fillStyle = gaugeColor; ctx.globalAlpha = 0.8 + pulse; ctx.fillRect(gaugeX, gaugeY, gaugeW * pressureProgress, gaugeH); ctx.globalAlpha = 1.0;
+
+    // Player Status Cluster (Bottom)
     const barWidth = 300, barHeight = 16, shieldHeight = 6, gap = 4, x = (width - barWidth) / 2, y = height - 80;
+    
+    // Level Indicator & Mini XP Bar
     ctx.font = 'bold 20px Inter, system-ui';
-    ctx.fillStyle = '#fde047'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#fde047';
+    ctx.textAlign = 'center';
     ctx.fillText(`LVL ${player.level}`, width / 2, y - 32);
 
+    const miniBarW = 120;
+    const miniBarH = 4;
+    const miniBarX = (width - miniBarW) / 2;
+    const miniBarY = y - 24;
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(miniBarX, miniBarY, miniBarW, miniBarH);
+    ctx.fillStyle = '#fde047';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(253, 224, 71, 0.8)';
+    ctx.fillRect(miniBarX, miniBarY, miniBarW * xpPercent, miniBarH);
+    ctx.shadowBlur = 0;
+
+    // Main Stats Background
     ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; ctx.fillRect(x - 4, y - shieldHeight - gap - 2, barWidth + 8, barHeight + shieldHeight + gap + 4 + 24); 
     
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.2)'; ctx.fillRect(x, y - shieldHeight - gap, barWidth, shieldHeight);
-    ctx.fillStyle = GAME_CONFIG.PLAYER.SHIELD_COLOR; ctx.fillRect(x, y - shieldHeight - gap, barWidth * (player.shield / player.maxShield), shieldHeight);
+    // Shield Bar
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+    ctx.fillRect(x, y - shieldHeight - gap, barWidth, shieldHeight);
+    ctx.fillStyle = GAME_CONFIG.PLAYER.SHIELD_COLOR;
+    ctx.fillRect(x, y - shieldHeight - gap, barWidth * (player.shield / player.maxShield), shieldHeight);
 
-    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; ctx.fillRect(x, y, barWidth, barHeight);
+    // Health Bar
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+    ctx.fillRect(x, y, barWidth, barHeight);
     const healthColor = player.health < 30 ? '#ef4444' : (player.health < 60 ? '#fbbf24' : '#10b981');
-    ctx.fillStyle = healthColor; ctx.fillRect(x, y, barWidth * (player.health / player.maxHealth), barHeight);
+    ctx.fillStyle = healthColor;
+    ctx.fillRect(x, y, barWidth * (player.health / player.maxHealth), barHeight);
 
-    const chargeSize = 12, chargeGap = 6, chargesX = x, chargesY = y + barHeight + 12;
+    // Dash Charges
+    const chargeSize = 12;
+    const chargeGap = 6;
+    const chargesX = x;
+    const chargesY = y + barHeight + 12;
+
     for (let i = 0; i < player.maxDashCharges; i++) {
-      ctx.beginPath(); ctx.arc(chargesX + i * (chargeSize + chargeGap) + chargeSize / 2, chargesY, chargeSize / 2, 0, Math.PI * 2);
-      if (i < player.dashCharges) { ctx.fillStyle = '#fbbf24'; ctx.fill(); }
-      else {
-        ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(chargesX + i * (chargeSize + chargeGap) + chargeSize / 2, chargesY, chargeSize / 2, 0, Math.PI * 2);
+      if (i < player.dashCharges) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
         if (i === player.dashCharges) {
-          ctx.beginPath(); const p = 1 - (player.dashCooldownTimer / GAME_CONFIG.PLAYER.DASH_COOLDOWN);
-          ctx.arc(chargesX + i * (chargeSize + chargeGap) + chargeSize / 2, chargesY, (chargeSize / 2) * p, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(251, 191, 36, 0.5)'; ctx.fill();
+          ctx.beginPath();
+          const progress = 1 - (player.dashCooldownTimer / GAME_CONFIG.PLAYER.DASH_COOLDOWN);
+          ctx.arc(chargesX + i * (chargeSize + chargeGap) + chargeSize / 2, chargesY, (chargeSize / 2) * progress, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.5)';
+          ctx.fill();
         }
       }
     }
 
-    // Ability Icon
-    if (player.isScatterShotUnlocked) {
-      const abilitySize = 24;
-      const abilityX = chargesX + (player.maxDashCharges * (chargeSize + chargeGap)) + 20;
-      const abilityY = chargesY;
-      
-      ctx.beginPath();
-      // Draw a diamond shape for the ability
-      ctx.moveTo(abilityX, abilityY - abilitySize/2);
-      ctx.lineTo(abilityX + abilitySize/2, abilityY);
-      ctx.lineTo(abilityX, abilityY + abilitySize/2);
-      ctx.lineTo(abilityX - abilitySize/2, abilityY);
-      ctx.closePath();
-
-      if (player.scatterShotTimer <= 0) {
-        ctx.fillStyle = GAME_CONFIG.SCATTER_SHOT.COLOR;
-        ctx.shadowBlur = 5; ctx.shadowColor = GAME_CONFIG.SCATTER_SHOT.COLOR;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      } else {
-         ctx.strokeStyle = 'rgba(192, 132, 252, 0.3)'; 
-         ctx.lineWidth = 2; 
-         ctx.stroke();
-         
-         // Cooldown fill
-         // We use the effective cooldown for visual consistency
-         const rankBonus = player.skillLevels['scatter_shot'] >= 2 ? GAME_CONFIG.SKILL_CONFIG.scatter_shot.BONUS : 0;
-         const currentMaxCD = GAME_CONFIG.SCATTER_SHOT.COOLDOWN - rankBonus;
-         const p = 1 - (player.scatterShotTimer / currentMaxCD);
-         ctx.fillStyle = 'rgba(192, 132, 252, 0.3)';
-         ctx.save();
-         ctx.clip(); // Clip to the diamond shape already in path
-         ctx.fillRect(abilityX - abilitySize/2, abilityY + abilitySize/2 - (abilitySize * p), abilitySize, abilitySize * p);
-         ctx.restore();
-      }
-    }
+    // Mode Toggle Hint
+    ctx.font = '12px Inter, system-ui';
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'right';
+    ctx.fillText(gameMode === 'idle' ? 'AUTO-BATTLE' : 'MANUAL', x + barWidth, chargesY + 4);
   };
 
   const drawGrid = (ctx: CanvasRenderingContext2D, cameraPos: Vector2, width: number, height: number) => {
     const size = GAME_CONFIG.WORLD.GRID_SIZE;
-    const halfW = GAME_CONFIG.WORLD.WIDTH / 2, halfH = GAME_CONFIG.WORLD.HEIGHT / 2;
-    ctx.strokeStyle = GAME_CONFIG.WORLD.GRID_COLOR; ctx.lineWidth = 1; ctx.globalAlpha = 0.4;
+    const halfW = GAME_CONFIG.WORLD.WIDTH / 2;
+    const halfH = GAME_CONFIG.WORLD.HEIGHT / 2;
+    
+    ctx.strokeStyle = GAME_CONFIG.WORLD.GRID_COLOR;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.4;
+    
     ctx.beginPath();
-    for (let x = -halfW; x <= halfW; x += size) { ctx.moveTo(x, -halfH); ctx.lineTo(x, halfH); }
-    for (let y = -halfH; y <= halfH; y += size) { ctx.moveTo(-halfW, y); ctx.lineTo(halfW, y); }
-    ctx.stroke(); ctx.globalAlpha = 1.0;
+    for (let x = -halfW; x <= halfW; x += size) {
+      ctx.moveTo(x, -halfH);
+      ctx.lineTo(x, halfH);
+    }
+    for (let y = -halfH; y <= halfH; y += size) {
+      ctx.moveTo(-halfW, y);
+      ctx.lineTo(halfW, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
   };
 
   const drawMouseReticle = (ctx: CanvasRenderingContext2D) => {
     const { x, y } = mouseRef.current;
     ctx.strokeStyle = gameMode === 'active' ? '#38bdf8' : 'rgba(148, 163, 184, 0.5)';
     ctx.lineWidth = 2;
-    const s = 10, g = 4;
+    
+    const size = 10;
+    const gap = 4;
+    
     ctx.beginPath();
-    ctx.moveTo(x - s - g, y); ctx.lineTo(x - g, y); ctx.moveTo(x + s + g, y); ctx.lineTo(x + g, y);
-    ctx.moveTo(x, y - s - g); ctx.lineTo(x, y - g); ctx.moveTo(x, y + s + g); ctx.lineTo(x, y + g);
+    ctx.moveTo(x - size - gap, y); ctx.lineTo(x - gap, y);
+    ctx.moveTo(x + size + gap, y); ctx.lineTo(x + gap, y);
+    ctx.moveTo(x, y - size - gap); ctx.lineTo(x, y - gap);
+    ctx.moveTo(x, y + size + gap); ctx.lineTo(x, y + gap);
     ctx.stroke();
+    
+    if (isMouseDownRef.current) {
+      ctx.beginPath();
+      ctx.arc(x, y, 15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   };
 
   useEffect(() => {
@@ -1226,51 +924,57 @@ export const GameCanvas: React.FC = () => {
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
-      mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      mouseRef.current = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      if (e.button === 0) { // Left Click
-        isMouseDownRef.current = true;
-      } else if (e.button === 2) { // Right Click
-        isRightMouseDownRef.current = true;
-      }
-
-      if (gameModeRef.current === 'idle') { 
-        setGameMode('active'); 
-        gameModeRef.current = 'active'; 
+      isMouseDownRef.current = true;
+      if (gameModeRef.current === 'idle') {
+        setGameMode('active');
+        gameModeRef.current = 'active';
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      if (e.button === 0) isMouseDownRef.current = false;
-      if (e.button === 2) isRightMouseDownRef.current = false;
-    };
-
-    const handleContextMenu = (e: MouseEvent) => {
-       e.preventDefault();
+    const handleMouseUp = () => {
+      isMouseDownRef.current = false;
     };
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const s = 0.001;
-      cameraRef.current.zoom = Math.min(Math.max(cameraRef.current.zoom - e.deltaY * s, 0.5), 2.0);
+      // Zoom out (positive delta) -> decrease scale.
+      // Zoom in (negative delta) -> increase scale.
+      const zoomSensitivity = 0.001;
+      const newZoom = cameraRef.current.zoom - e.deltaY * zoomSensitivity;
+      
+      // Clamp between 0.5 and 2.0
+      cameraRef.current.zoom = Math.min(Math.max(newZoom, 0.5), 2.0);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'KeyP' || e.code === 'Escape') {
-        setPaused(p => { pausedRef.current = !p; return !p; });
+        setPaused(p => {
+          pausedRef.current = !p;
+          return !p;
+        });
       }
       if (e.code === 'Enter') {
-        setGameMode(m => { const next = m === 'idle' ? 'active' : 'idle'; gameModeRef.current = next; return next; });
+        setGameMode(m => {
+          const next = m === 'idle' ? 'active' : 'idle';
+          gameModeRef.current = next;
+          return next;
+        });
       }
-      if (e.code === 'KeyR' && gameOver) resetGame();
+      if (e.code === 'KeyR' && gameOver) {
+        resetGame();
+      }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('keydown', handleKeyDown);
 
@@ -1288,9 +992,14 @@ export const GameCanvas: React.FC = () => {
       requestRef.current = requestAnimationFrame(loop);
     };
 
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
     window.addEventListener('resize', resize);
     resize();
+    
     requestRef.current = requestAnimationFrame(loop);
 
     return () => {
@@ -1298,7 +1007,6 @@ export const GameCanvas: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', resize);
@@ -1309,18 +1017,20 @@ export const GameCanvas: React.FC = () => {
     <div className="relative w-full h-full overflow-hidden select-none touch-none">
       <canvas ref={canvasRef} className="block cursor-none touch-none" />
       
-      {/* Level Up Skill Selection UI */}
-      {isLevelingUp && (
-        <SkillPanel 
-          level={playerRef.current.level} 
-          currentSkillLevels={playerRef.current.skillLevels}
-          onSelect={handleSkillSelect} 
-        />
-      )}
-
       {/* Mobile Controls Layer */}
-      <VirtualJoystick side="left" onMove={(data) => { leftStickRef.current = data; }} />
-      <VirtualJoystick side="right" onMove={(data) => { rightStickRef.current = data; }} />
+      <VirtualJoystick 
+        side="left" 
+        onMove={(data) => {
+          leftStickRef.current = data;
+        }} 
+      />
+      
+      <VirtualJoystick 
+        side="right" 
+        onMove={(data) => {
+          rightStickRef.current = data;
+        }} 
+      />
 
       <button 
         className="absolute bottom-32 right-8 w-16 h-16 rounded-full bg-amber-400/80 border-2 border-white/50 active:bg-amber-300 shadow-lg backdrop-blur-sm z-50 flex items-center justify-center pointer-events-auto"
@@ -1332,23 +1042,17 @@ export const GameCanvas: React.FC = () => {
         <span className="font-bold text-black text-xs">DASH</span>
       </button>
 
-      {/* Ability Button (Mobile/Tablet only really, but visible for testing) */}
-      {playerRef.current.isScatterShotUnlocked && (
-        <button 
-          className="absolute bottom-32 right-28 w-14 h-14 rounded-full bg-purple-500/80 border-2 border-white/50 active:bg-purple-400 shadow-lg backdrop-blur-sm z-50 flex items-center justify-center pointer-events-auto"
-          onTouchStart={(e) => { e.preventDefault(); abilityBtnRef.current = true; }}
-          onTouchEnd={(e) => { e.preventDefault(); abilityBtnRef.current = false; }}
-          onMouseDown={() => abilityBtnRef.current = true}
-          onMouseUp={() => abilityBtnRef.current = false}
-        >
-          <span className="font-bold text-white text-[10px]">SHOT</span>
-        </button>
-      )}
-
       {gameOver && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white animate-in fade-in duration-700 z-[100]">
-          <h1 className="text-6xl font-bold text-red-500 mb-4 tracking-tighter italic">HERO FALLEN</h1>
-          <button onClick={resetGame} className="px-8 py-3 bg-white text-black font-bold hover:bg-slate-200 uppercase tracking-widest">RESPAWN [R]</button>
+          <h1 className="text-6xl font-bold text-red-500 mb-4 tracking-tighter">HERO FALLEN</h1>
+          <div className="flex gap-4">
+            <button 
+              onClick={resetGame}
+              className="px-8 py-3 bg-white text-black font-bold hover:bg-slate-200 transition-colors uppercase tracking-widest"
+            >
+              RESPAWN [R]
+            </button>
+          </div>
         </div>
       )}
 
@@ -1357,6 +1061,30 @@ export const GameCanvas: React.FC = () => {
           <h2 className="text-4xl font-bold tracking-widest text-sky-400">GAME PAUSED</h2>
         </div>
       )}
+
+      {/* Control Overlay for PC */}
+      <div className="hidden md:flex absolute bottom-6 left-6 flex-col gap-2 pointer-events-none opacity-50">
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">WASD</span>
+            <span>Move Hero</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">SPACE</span>
+            <span>Dodge / Dash</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">CLICK</span>
+            <span>Attack</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">ENTER</span>
+            <span>Take Control / Idle</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+            <span className="px-2 py-1 bg-slate-800 rounded border border-slate-700">WHEEL</span>
+            <span>Zoom</span>
+          </div>
+      </div>
     </div>
   );
 };
