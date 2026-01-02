@@ -1,3 +1,4 @@
+
 export const GAME_CONFIG = {
   PLAYER: {
     RADIUS: 14,
@@ -29,12 +30,37 @@ export const GAME_CONFIG = {
     FAST_XP: 25,
     HEAVY_XP: 100,
   },
+  SKILL_CONFIG: {
+    kinetic_overload: { MAX: 5, BONUS: 0.20 },
+    shield_regen: { MAX: 5, BONUS: 0.15 },
+    dash_boost: { MAX: 3, BONUS: 1 },
+    scatter_shot: { MAX: 2, BONUS: 1.0 }, // Rank 1: Unlock, Rank 2: 1.0s CD reduction
+  },
   DASH_ATTACK: {
-    DAMAGE: 10, 
+    DAMAGE: 25, 
     KNOCKBACK_FORCE: 1800, 
     KNOCKBACK_FRICTION: 0.96, 
     HIT_COOLDOWN: 0.2, 
     IMPACT_SHAKE: 8, 
+    WALL_IMPACT_DAMAGE: 15,
+    WALL_IMPACT_THRESHOLD: 400,
+  },
+  SCATTER_SHOT: {
+    COOLDOWN: 2.5,
+    COUNT: 6,
+    SPREAD: 0.6, // Radians (~35 degrees)
+    SPEED: 1100,
+    LIFE: 0.35, // Short range
+    DAMAGE: 8,
+    COLOR: '#c084fc', // Purple
+    RECOIL: 400,
+    // Charge Mechanics
+    MAX_CHARGE_TIME: 1.2, // Seconds to full charge
+    MIN_CHARGE_THRESHOLD: 0.15, // Minimum hold to fire at all (prevents accidental taps)
+    CHARGE_MOVE_SPEED_PENALTY: 0.5, // Player moves at 50% speed while charging
+    MAX_DAMAGE_MULTIPLIER: 2.5, // 2.5x damage at full charge
+    MAX_COUNT_ADDITION: 6, // +6 projectiles at full charge
+    MAX_SIZE_MULTIPLIER: 2.0, // Projectiles are twice as big
   },
   FEEDBACK: {
     ENEMY_HIT_FLASH: 0.1, // Duration in seconds

@@ -1,3 +1,4 @@
+
 export interface Vector2 {
   x: number;
   y: number;
@@ -21,6 +22,10 @@ export interface PlayerState {
   level: number;
   kills: number;
   levelUpTimer: number; // For level up feedback
+  isLevelUpActive: boolean; // For freezing game and showing UI
+  // Stats Modifiers
+  damageMultiplier: number;
+  shieldRegenMultiplier: number;
   // Auto-aim state
   targetId: number | null;
   retargetTimer: number;
@@ -31,10 +36,18 @@ export interface PlayerState {
   dashCooldownTimer: number; // Time until next charge
   isDashing: boolean;
   dashDurationTimer: number; // Duration of the active dash move
+  // Ability: Scatter Shot
+  isScatterShotUnlocked: boolean;
+  scatterShotTimer: number;
+  isChargingScatter: boolean;
+  scatterChargeTimer: number;
+  // Augmentation Tracking
+  skillLevels: Record<string, number>;
 }
 
 export interface Enemy {
   id: number;
+  type: 'basic' | 'fast' | 'heavy';
   position: Vector2;
   radius: number;
   rotation: number;
@@ -56,6 +69,8 @@ export interface Projectile {
   velocity: Vector2;
   radius: number;
   life: number;
+  color: string;
+  damage: number;
 }
 
 export interface CameraState {
